@@ -5,8 +5,15 @@
   "mountains": { "spineCountMin": 2, "spineCountMax": 4 },
   "seaLevel": { "landFractionMin": 0.35, "landFractionMax": 0.50, "maxIslets": 3, "maxIsletCells": 60 },
   "erosion": { "passesMin": 20, "passesMax": 40 },
-  "climate": { "windDirection": "west" },
-  "hydrology": { "riverThreshold": 5000, "lakeDepth": 3 },
+  "climate": {
+    "windDirection": "west",
+    "baseRain": 90,
+    "maxMoisture": 255,
+    "upliftRainFactor": 0.15,
+    "travelLossPerCell": 0.3
+  },
+  "hydrology": { "riverThreshold": 200, "lakeDepth": 50, "flowScaleDivisor": 50 },
+  "slope": { "quantizationScale": 100 },
   "coast": {
     "shelterRadiusMiles": 24,
     "rayCount": 16,
@@ -19,11 +26,11 @@
   },
   "soil": {
     "mountainLineMetres": 900,
-    "rockSlopeDegrees": 25,
+    "rockSlopeRatio": 0.4663,
     "moorElevationMinMetres": 600,
     "moorElevationMaxMetres": 900,
     "marshMaxElevationMetres": 5,
-    "marshMaxSlopeDegrees": 2,
+    "marshMaxSlopeRatio": 0.0349,
     "marshMinRain": 200
   },
   "resources": {

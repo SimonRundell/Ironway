@@ -520,7 +520,7 @@ function validateMapgen(data) {
 
   for (const field of [
     'grid', 'islandMask', 'elevation', 'mountains', 'seaLevel', 'erosion',
-    'climate', 'hydrology', 'coast', 'soil', 'resources', 'links', 'validation',
+    'climate', 'hydrology', 'slope', 'coast', 'soil', 'resources', 'links', 'validation',
   ]) {
     requireField(data, field, file, '(root)')
   }
