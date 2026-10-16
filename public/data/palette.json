@@ -1,0 +1,18 @@
+{
+  "landuse": {
+    "sea": "#3b6a86",
+    "lake": "#5f8fa6",
+    "arable": "#c9b15a",
+    "mixed": "#a9b85c",
+    "pastoral": "#8bb35a",
+    "forest": "#3f6b3a",
+    "moor": "#8a7a5c",
+    "marsh": "#6b7a5c",
+    "rock": "#8a8478"
+  },
+  "river": "#5f8fa6",
+  "coastline": "#2b2620",
+  "roadByTier": { "0": "#9c8a6a", "1": "#9c8a6a", "2": "#8a7a5c", "3": "#6b6254" },
+  "railByTier": { "0": "#4a4740", "1": "#4a4740", "2": "#2b2620", "3": "#2b2620" },
+  "seaLane": "#2f4f5f"
+}

@@ -1,0 +1,60 @@
+{
+  "grid": { "width": 300, "height": 150, "cellMiles": 2 },
+  "islandMask": { "marginMiles": 20, "warpStrength": 0.3 },
+  "elevation": { "octaves": 6, "lacunarity": 2, "gain": 0.5 },
+  "mountains": { "spineCountMin": 2, "spineCountMax": 4 },
+  "seaLevel": { "landFractionMin": 0.35, "landFractionMax": 0.50, "maxIslets": 3, "maxIsletCells": 60 },
+  "erosion": { "passesMin": 20, "passesMax": 40 },
+  "climate": { "windDirection": "west" },
+  "hydrology": { "riverThreshold": 5000, "lakeDepth": 3 },
+  "coast": {
+    "shelterRadiusMiles": 24,
+    "rayCount": 16,
+    "rayMaxMiles": 20,
+    "bayShelterThreshold": 0.6,
+    "portRiverFlowThreshold": 3000,
+    "harbourMinSpacingMiles": 40,
+    "minHarbourCandidates": 10,
+    "minEstuaryHarbours": 3
+  },
+  "soil": {
+    "mountainLineMetres": 900,
+    "rockSlopeDegrees": 25,
+    "moorElevationMinMetres": 600,
+    "moorElevationMaxMetres": 900,
+    "marshMaxElevationMetres": 5,
+    "marshMaxSlopeDegrees": 2,
+    "marshMinRain": 200
+  },
+  "resources": {
+    "minCoalDeposits": 4,
+    "minIronDeposits": 4,
+    "minStoneDeposits": 6,
+    "minClayDeposits": 6,
+    "coalIronProximityMiles": 60,
+    "minCoalIronPairsWithinProximity": 3
+  },
+  "links": {
+    "roadNearestNeighboursMin": 2,
+    "roadNearestNeighboursMax": 3,
+    "railSkeletonTopCitiesMin": 3,
+    "railSkeletonTopCitiesMax": 5,
+    "maxRailShareOfRoadMiles": 0.15
+  },
+  "validation": {
+    "landFractionMin": 0.35,
+    "landFractionMax": 0.50,
+    "minRiverCount": 3,
+    "minRiverLengthMiles": 100,
+    "minRockCells": 40,
+    "minHarbourCandidates": 10,
+    "minEstuaryHarbours": 3,
+    "minArablePercent": 5,
+    "minPastoralPercent": 5,
+    "minForestPercent": 5,
+    "minMarshPercent": 1,
+    "capitalMaxMilesFromHarbour": 12,
+    "maxAttempts": 12,
+    "generationTimeLimitSeconds": 5
+  }
+}

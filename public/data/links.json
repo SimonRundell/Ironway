@@ -1,0 +1,24 @@
+{
+  "road": [
+    { "tier": 0, "name": "Cart track", "speedMph": 3, "freightTonnesPerMonth": 150, "passengersPerMonth": 400, "upgradeCostPerMile": 800, "eraFrom": 1830 },
+    { "tier": 1, "name": "Turnpike", "speedMph": 5, "freightTonnesPerMonth": 600, "passengersPerMonth": 1500, "upgradeCostPerMile": 4000, "eraFrom": 1830 },
+    { "tier": 2, "name": "Macadam road", "speedMph": 8, "freightTonnesPerMonth": 1200, "passengersPerMonth": 3000, "upgradeCostPerMile": 9000, "eraFrom": 1840 },
+    { "tier": 3, "name": "Metalled road", "speedMph": 18, "freightTonnesPerMonth": 3000, "passengersPerMonth": 8000, "upgradeCostPerMile": 20000, "eraFrom": 1910 }
+  ],
+  "rail": [
+    { "tier": 0, "name": "Early line", "speedMph": 12, "freightTonnesPerMonth": 1500, "passengersPerMonth": 3000, "upgradeCostPerMile": null, "eraFrom": 1830 },
+    { "tier": 1, "name": "Single line", "speedMph": 25, "freightTonnesPerMonth": 6000, "passengersPerMonth": 12000, "upgradeCostPerMile": 20000, "eraFrom": 1830 },
+    { "tier": 2, "name": "Double line", "speedMph": 40, "freightTonnesPerMonth": 25000, "passengersPerMonth": 50000, "upgradeCostPerMile": 35000, "eraFrom": 1850 },
+    { "tier": 3, "name": "Main line", "speedMph": 60, "freightTonnesPerMonth": 60000, "passengersPerMonth": 120000, "upgradeCostPerMile": 60000, "eraFrom": 1880 }
+  ],
+  "sea": {
+    "name": "Coastal lane",
+    "eraFrom": 1830,
+    "byPortTier": [
+      { "portTier": 0, "speedMph": 6, "freightTonnesPerMonth": 800, "passengersPerMonth": 1000 },
+      { "portTier": 1, "speedMph": 9, "freightTonnesPerMonth": 2500, "passengersPerMonth": 3500 },
+      { "portTier": 2, "speedMph": 11, "freightTonnesPerMonth": 5000, "passengersPerMonth": 6500 },
+      { "portTier": 3, "speedMph": 14, "freightTonnesPerMonth": 8000, "passengersPerMonth": 10000 }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "classes": [
+    { "id": "working", "name": "Working", "participation": 0.85, "mobility": 0.02, "baseWagePerMonth": 3.5 },
+    { "id": "middle", "name": "Middle", "participation": 0.65, "mobility": 0.008, "baseWagePerMonth": 9 },
+    { "id": "upper", "name": "Upper", "participation": 0.25, "mobility": 0.002, "baseWagePerMonth": 28 }
+  ]
+}

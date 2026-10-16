@@ -1,0 +1,198 @@
+{
+  "industries": [
+    {
+      "id": "coal_mine", "name": "Coal mine", "tier": "primary",
+      "siteRules": ["resource:coal"],
+      "inputs": [],
+      "outputs": { "coal": 3000 },
+      "jobs": { "working": 120, "middle": 6, "upper": 1 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 1, "storageMonths": 2
+    },
+    {
+      "id": "iron_mine", "name": "Iron mine", "tier": "primary",
+      "siteRules": ["resource:iron"],
+      "inputs": [],
+      "outputs": { "iron_ore": 2000 },
+      "jobs": { "working": 100, "middle": 5, "upper": 1 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 1, "storageMonths": 2
+    },
+    {
+      "id": "quarry", "name": "Quarry", "tier": "primary",
+      "siteRules": ["resource:stone"],
+      "inputs": [],
+      "outputs": { "stone": 2500 },
+      "jobs": { "working": 60, "middle": 3, "upper": 1 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 1, "storageMonths": 2
+    },
+    {
+      "id": "clay_pit", "name": "Clay pit", "tier": "primary",
+      "siteRules": ["resource:clay"],
+      "inputs": [],
+      "outputs": { "clay": 2000 },
+      "jobs": { "working": 40, "middle": 2, "upper": 1 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 1, "storageMonths": 2
+    },
+    {
+      "id": "forestry_camp", "name": "Forestry camp", "tier": "primary",
+      "siteRules": ["forest"],
+      "inputs": [],
+      "outputs": { "timber": 800 },
+      "jobs": { "working": 30, "middle": 2, "upper": 1 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 2, "storageMonths": 2
+    },
+    {
+      "id": "fishery", "name": "Fishery", "tier": "primary",
+      "siteRules": ["harbour"],
+      "inputs": [],
+      "outputs": { "fish": 120 },
+      "jobs": { "working": 40, "middle": 2, "upper": 1 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 2, "storageMonths": 1
+    },
+    {
+      "id": "flour_mill", "name": "Flour mill", "tier": "secondary",
+      "siteRules": ["river"],
+      "inputs": [{ "cargo": "grain", "qty": 600 }],
+      "outputs": { "flour": 540 },
+      "jobs": { "working": 12, "middle": 3, "upper": 1 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 2, "storageMonths": 2
+    },
+    {
+      "id": "food_works", "name": "Food works", "tier": "secondary",
+      "siteRules": ["town:town"],
+      "inputs": [
+        { "any": { "flour": 400, "livestock": 200, "milk": 300, "fish": 100 } }
+      ],
+      "outputs": { "food": 380 },
+      "jobs": { "working": 30, "middle": 6, "upper": 1 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 3, "storageMonths": 1
+    },
+    {
+      "id": "slaughterhouse", "name": "Slaughterhouse", "tier": "secondary",
+      "siteRules": ["town:town"],
+      "inputs": [{ "cargo": "livestock", "qty": 200 }],
+      "outputs": { "food": 120, "hides": 30 },
+      "jobs": { "working": 20, "middle": 4, "upper": 1 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 2, "storageMonths": 1
+    },
+    {
+      "id": "brewery", "name": "Brewery", "tier": "secondary",
+      "siteRules": ["town:town"],
+      "inputs": [{ "cargo": "grain", "qty": 200 }],
+      "outputs": { "beer": 260 },
+      "jobs": { "working": 20, "middle": 4, "upper": 2 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 2, "storageMonths": 2
+    },
+    {
+      "id": "sawmill", "name": "Sawmill", "tier": "secondary",
+      "siteRules": ["river"],
+      "inputs": [{ "cargo": "timber", "qty": 500 }],
+      "outputs": { "planks": 450 },
+      "jobs": { "working": 25, "middle": 3, "upper": 1 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 2, "storageMonths": 2
+    },
+    {
+      "id": "brickworks", "name": "Brickworks", "tier": "secondary",
+      "siteRules": ["near:clay"],
+      "inputs": [
+        { "cargo": "clay", "qty": 800 },
+        { "cargo": "coal", "qty": 160 }
+      ],
+      "outputs": { "bricks": 700 },
+      "jobs": { "working": 40, "middle": 3, "upper": 1 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 2, "storageMonths": 2
+    },
+    {
+      "id": "ironworks", "name": "Ironworks", "tier": "secondary",
+      "siteRules": ["river"],
+      "inputs": [
+        { "cargo": "iron_ore", "qty": 600 },
+        { "cargo": "coal", "qty": 800 }
+      ],
+      "outputs": { "iron": 300 },
+      "jobs": { "working": 90, "middle": 8, "upper": 2 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 2, "storageMonths": 2
+    },
+    {
+      "id": "steelworks", "name": "Steelworks", "tier": "secondary",
+      "siteRules": [{ "any": ["river", "harbour"] }],
+      "inputs": [
+        { "cargo": "iron", "qty": 400 },
+        { "cargo": "coal", "qty": 500 }
+      ],
+      "outputs": { "steel": 350 },
+      "jobs": { "working": 120, "middle": 10, "upper": 2 },
+      "eraFrom": 1856, "eraTo": null, "maxPerNode": 2, "storageMonths": 2
+    },
+    {
+      "id": "engineering_works", "name": "Engineering works", "tier": "secondary",
+      "siteRules": ["town:city"],
+      "inputs": [
+        { "any": { "iron": 200, "steel": 200 } },
+        { "cargo": "coal", "qty": 60 }
+      ],
+      "outputs": { "machinery": 40 },
+      "jobs": { "working": 80, "middle": 15, "upper": 2 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 2, "storageMonths": 2
+    },
+    {
+      "id": "textile_mill", "name": "Textile mill", "tier": "secondary",
+      "siteRules": ["river"],
+      "inputs": [{ "any": { "wool": 100, "cotton": 100 } }],
+      "outputs": { "cloth": 90 },
+      "jobs": { "working": 150, "middle": 8, "upper": 2 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 2, "storageMonths": 2
+    },
+    {
+      "id": "garment_works", "name": "Garment works", "tier": "secondary",
+      "siteRules": ["town:town"],
+      "inputs": [{ "cargo": "cloth", "qty": 90 }],
+      "outputs": { "clothing": 80 },
+      "jobs": { "working": 90, "middle": 10, "upper": 2 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 2, "storageMonths": 2
+    },
+    {
+      "id": "tannery", "name": "Tannery", "tier": "secondary",
+      "siteRules": ["river"],
+      "inputs": [{ "cargo": "hides", "qty": 60 }],
+      "outputs": { "leather": 45 },
+      "jobs": { "working": 20, "middle": 2, "upper": 1 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 2, "storageMonths": 2
+    },
+    {
+      "id": "goods_works", "name": "Goods works", "tier": "secondary",
+      "siteRules": ["town:city"],
+      "inputs": [
+        { "cargo": "iron", "qty": 100 },
+        { "cargo": "planks", "qty": 50 }
+      ],
+      "outputs": { "goods": 120 },
+      "jobs": { "working": 60, "middle": 8, "upper": 2 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 2, "storageMonths": 2
+    },
+    {
+      "id": "shipyard", "name": "Shipyard", "tier": "secondary",
+      "siteRules": ["harbour"],
+      "inputs": [
+        { "cargo": "planks", "qty": 300 },
+        { "cargo": "iron", "qty": 100 },
+        { "cargo": "cloth", "qty": 20 }
+      ],
+      "outputs": { "ships": 0.6 },
+      "jobs": { "working": 160, "middle": 12, "upper": 3 },
+      "eraFrom": 1830, "eraTo": null, "maxPerNode": 1, "storageMonths": 3
+    },
+    {
+      "id": "car_plant", "name": "Car plant", "tier": "secondary",
+      "siteRules": ["town:city"],
+      "inputs": [
+        { "cargo": "steel", "qty": 120 },
+        { "cargo": "machinery", "qty": 10 },
+        { "cargo": "leather", "qty": 15 },
+        { "cargo": "rubber", "qty": 20 }
+      ],
+      "outputs": { "cars": 40 },
+      "jobs": { "working": 200, "middle": 25, "upper": 3 },
+      "eraFrom": 1900, "eraTo": null, "maxPerNode": 1, "storageMonths": 2
+    }
+  ]
+}

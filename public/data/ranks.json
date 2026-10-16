@@ -1,0 +1,18 @@
+{
+  "ranks": [
+    { "key": "clerk", "name": "Clerk", "minNetWorth": 0 },
+    { "key": "contractor", "name": "Contractor", "minNetWorth": 5000 },
+    { "key": "promoter", "name": "Promoter", "minNetWorth": 25000 },
+    { "key": "director", "name": "Director", "minNetWorth": 100000 },
+    { "key": "chairman", "name": "Chairman", "minNetWorth": 500000 },
+    { "key": "magnate", "name": "Magnate", "minNetWorth": 2000000 }
+  ],
+  "achievements": [
+    { "key": "first_profit", "name": "First profitable year", "description": "End a year with positive net profit." },
+    { "key": "hundred_miles", "name": "First 100 miles served", "description": "Operate services covering 100 cumulative link-miles." },
+    { "key": "first_export", "name": "First export cargo", "description": "Deliver cargo to a port for export." },
+    { "key": "five_economy_levels", "name": "All weathers", "description": "Experience all five island economy levels in one save." },
+    { "key": "survive_25_years", "name": "Quarter century", "description": "Survive 25 game years without insolvency." },
+    { "key": "millionaire", "name": "Millionaire", "description": "Reach £1,000,000 in cash." }
+  ]
+}

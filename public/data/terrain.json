@@ -1,0 +1,14 @@
+{
+  "landuseEnum": ["sea", "lake", "arable", "mixed", "pastoral", "forest", "moor", "marsh", "rock"],
+  "debugColours": {
+    "sea": "#1f4e66",
+    "lake": "#2f6e8a",
+    "arable": "#d4b106",
+    "mixed": "#9acd32",
+    "pastoral": "#4caf50",
+    "forest": "#1b5e20",
+    "moor": "#795548",
+    "marsh": "#556b2f",
+    "rock": "#9e9e9e"
+  }
+}

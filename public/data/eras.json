@@ -1,0 +1,65 @@
+{
+  "timeline": [
+    { "year": 1830, "event": "Start. Horse transport, early steam, wooden ships, windmills and water mills." },
+    { "year": 1840, "event": "Agricultural productivity step up. Macadam roads." },
+    { "year": 1850, "event": "Double-track railways. Goods locomotives." },
+    { "year": 1856, "event": "Steel becomes available at scale." },
+    { "year": 1870, "event": "Railways mature. Population growth peaks." },
+    { "year": 1880, "event": "Main-line railway standard." },
+    { "year": 1890, "event": "Rubber imports. Compound locomotives." },
+    { "year": 1895, "event": "Oil imports. First steam wagons." },
+    { "year": 1900, "event": "Car plants possible." },
+    { "year": 1905, "event": "Motor buses. Private cars appear." },
+    { "year": 1910, "event": "Metalled roads. Heavy locomotives." },
+    { "year": 1920, "event": "Mass-produced cars. Lorries dominate short freight." },
+    { "year": 1930, "event": "Century review." }
+  ],
+  "agriProductivityMultiplier": [
+    { "year": 1830, "value": 1.00 },
+    { "year": 1840, "value": 1.15 },
+    { "year": 1870, "value": 1.35 },
+    { "year": 1900, "value": 1.55 },
+    { "year": 1920, "value": 1.75 },
+    { "year": 1930, "value": 1.85 }
+  ],
+  "birthRatePer1000PerYear": [
+    { "year": 1830, "value": 33 },
+    { "year": 1930, "value": 33 }
+  ],
+  "deathRatePer1000PerYear": [
+    { "year": 1830, "value": 22 },
+    { "year": 1850, "value": 20 },
+    { "year": 1870, "value": 18 },
+    { "year": 1890, "value": 16 },
+    { "year": 1910, "value": 14 },
+    { "year": 1930, "value": 13 }
+  ],
+  "worldTrade": {
+    "grain": { "exportCapPerPortTierPerMonth": [500, 1500, 4000, 10000], "worldPriceFactor": 1.0 },
+    "livestock": { "exportCapPerPortTierPerMonth": [200, 600, 1600, 4000], "worldPriceFactor": 1.0 },
+    "wool": { "exportCapPerPortTierPerMonth": [100, 300, 800, 2000], "worldPriceFactor": 1.0 },
+    "coal": { "exportCapPerPortTierPerMonth": [500, 1500, 4000, 12000], "worldPriceFactor": 1.0 },
+    "fish": { "exportCapPerPortTierPerMonth": [100, 300, 800, 2000], "worldPriceFactor": 1.0 },
+    "food": { "exportCapPerPortTierPerMonth": [150, 450, 1200, 3000], "worldPriceFactor": 1.0 },
+    "beer": { "exportCapPerPortTierPerMonth": [100, 300, 800, 2000], "worldPriceFactor": 1.0 },
+    "cloth": { "exportCapPerPortTierPerMonth": [80, 240, 640, 1600], "worldPriceFactor": 1.0 },
+    "clothing": { "exportCapPerPortTierPerMonth": [60, 180, 480, 1200], "worldPriceFactor": 1.0 },
+    "iron": { "exportCapPerPortTierPerMonth": [150, 450, 1200, 3000], "worldPriceFactor": 1.0 },
+    "steel": { "exportCapPerPortTierPerMonth": [120, 360, 960, 2400], "worldPriceFactor": 1.0 },
+    "machinery": {
+      "exportCapPerPortTierPerMonth": [20, 60, 160, 400],
+      "importCapPerPortTierPerMonth": [20, 60, 160, 400],
+      "worldPriceFactor": 1.0
+    },
+    "goods": { "exportCapPerPortTierPerMonth": [80, 240, 640, 1600], "worldPriceFactor": 1.0 },
+    "ships": { "exportCapPerPortTierPerMonth": [0, 1, 3, 8], "worldPriceFactor": 1.0 },
+    "cars": { "exportCapPerPortTierPerMonth": [20, 60, 160, 400], "worldPriceFactor": 1.0 },
+    "timber": { "importCapPerPortTierPerMonth": [200, 600, 1600, 4000], "worldPriceFactor": 1.0 },
+    "iron_ore": { "importCapPerPortTierPerMonth": [200, 600, 1600, 4000], "worldPriceFactor": 1.0 },
+    "cotton": { "importCapPerPortTierPerMonth": [100, 300, 800, 2000], "worldPriceFactor": 1.0 },
+    "hides": { "importCapPerPortTierPerMonth": [50, 150, 400, 1000], "worldPriceFactor": 1.0 },
+    "luxuries": { "importCapPerPortTierPerMonth": [10, 40, 120, 300], "worldPriceFactor": 1.0 },
+    "rubber": { "importCapPerPortTierPerMonth": [10, 40, 120, 300], "worldPriceFactor": 1.0 },
+    "oil": { "importCapPerPortTierPerMonth": [20, 60, 160, 400], "worldPriceFactor": 1.0 }
+  }
+}

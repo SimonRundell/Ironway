@@ -1,0 +1,7 @@
+{
+  "difficulties": [
+    { "id": "easy", "name": "Easy", "startingCash": 5000, "shockAmplitude": 0.5, "demandMode": "basic", "startingPopulationScale": 1.1 },
+    { "id": "normal", "name": "Normal", "startingCash": 3000, "shockAmplitude": 1.0, "demandMode": "complex", "startingPopulationScale": 1.0 },
+    { "id": "hard", "name": "Hard", "startingCash": 1500, "shockAmplitude": 1.5, "demandMode": "complex", "startingPopulationScale": 0.9 }
+  ]
+}

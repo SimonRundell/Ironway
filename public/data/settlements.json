@@ -1,0 +1,18 @@
+{
+  "kinds": [
+    { "id": "capital", "name": "Capital", "count": { "min": 1, "max": 1 }, "minSpacingMiles": null, "hinterlandRadiusMiles": 24, "initialPopulation": { "min": 250000, "max": 450000 } },
+    { "id": "city", "name": "City", "count": { "min": 6, "max": 8 }, "minSpacingMiles": 70, "hinterlandRadiusMiles": 16, "initialPopulation": { "min": 40000, "max": 150000 } },
+    { "id": "town", "name": "Town", "count": { "min": 24, "max": 32 }, "minSpacingMiles": 25, "hinterlandRadiusMiles": 10, "initialPopulation": { "min": 6000, "max": 30000 } },
+    { "id": "village", "name": "Village", "count": { "min": 90, "max": 130 }, "minSpacingMiles": 8, "hinterlandRadiusMiles": 6, "initialPopulation": { "min": 1200, "max": 6000 } },
+    { "id": "hamlet", "name": "Hamlet", "count": { "min": 110, "max": 160 }, "minSpacingMiles": 4, "hinterlandRadiusMiles": 3, "initialPopulation": { "min": 250, "max": 1000 } }
+  ],
+  "classSplitPercent": {
+    "hamlet": { "upper": 2, "middle": 8, "working": 90 },
+    "village": { "upper": 3, "middle": 12, "working": 85 },
+    "town": { "upper": 5, "middle": 25, "working": 70 },
+    "city_industrial": { "upper": 4, "middle": 22, "working": 74 },
+    "city_trading": { "upper": 8, "middle": 32, "working": 60 },
+    "capital": { "upper": 12, "middle": 38, "working": 50 }
+  },
+  "initialHousingCapacityFactor": 1.05
+}

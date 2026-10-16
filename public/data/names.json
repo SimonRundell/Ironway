@@ -1,0 +1,39 @@
+{
+  "settlementStems": [
+    "Ash", "Elm", "Oak", "Thorn", "Winter", "Summer", "Black", "White", "Green", "Stan",
+    "Wood", "Field", "Brook", "Dale", "Hollow", "Marsh", "Stone", "Mill", "Church", "Castle",
+    "Long", "Short", "North", "South", "East", "West", "Up", "Down", "Kings", "Queens",
+    "Monk", "Abbot", "Earl", "Red", "Grey", "Silver", "Gold", "Copper", "Iron", "Bridge",
+    "Cross", "Hill", "Dean", "Combe", "Mere", "Fen", "Moor", "Heath", "Shaw", "Grove",
+    "Holt", "Barrow", "Carter", "Fisher", "Miller", "Weaver", "Shepherd", "Mason", "Walton", "Harford"
+  ],
+  "settlementEndings": ["ton", "ford", "bury", "by", "wick", "ham"],
+  "coastalEndings": ["mouth", "haven", "port", "stow"],
+  "prefixes": ["Upper", "Nether", "Little", "Great", "Port", "Saint"],
+  "riverStems": [
+    "Ash", "Black", "White", "Clear", "Swift", "Still", "Dark", "Silver", "Wind", "Stone",
+    "Oak", "Elm", "Fen", "Marsh", "Long", "Deep", "Shallow", "Cold", "Mill", "Otter"
+  ],
+  "riverSuffixes": ["", "Water", "Brook", "Burn", "Beck"],
+  "bayStems": [
+    "North", "South", "East", "West", "Wide", "Calm", "Storm", "Safe", "Gull", "Herring",
+    "Oyster", "Fisher", "Sand", "Shell", "Tide", "Moon"
+  ],
+  "baySuffixes": ["Bay", "Sound", "Firth", "Haven", "Cove"],
+  "rangeStems": [
+    "Grey", "Black", "White", "High", "Far", "Cold", "Stone", "Iron", "Raven", "Eagle",
+    "Wolf", "Stag", "Mist", "Cloud", "Long", "Broken"
+  ],
+  "rangeSuffixes": ["Hills", "Fells", "Downs", "Moors", "Peak", "Ridge"],
+  "islandNameStems": [
+    "Aver", "Bel", "Cor", "Dun", "Eld", "Fen", "Gal", "Hal", "Ith", "Kel",
+    "Lor", "Mor", "Nor", "Os", "Pel", "Rhen", "Sel", "Tor", "Vel", "Wyn"
+  ],
+  "islandNameSuffixes": ["mere", "shire", "land", "wick", "holm", "stead"],
+  "blocklist": [
+    "London", "Paris", "York", "Bristol", "Plymouth", "Dover", "Cardiff", "Edinburgh",
+    "Glasgow", "Liverpool", "Manchester", "Birmingham", "Dublin", "Belfast", "Leeds",
+    "Sheffield", "Newcastle", "Southampton", "Portsmouth", "Oxford", "Cambridge",
+    "Nottingham", "Leicester", "Norwich", "Exeter", "Aberdeen", "Inverness", "Swansea"
+  ]
+}
