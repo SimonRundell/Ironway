@@ -1,0 +1,60 @@
+/*
+ * Ironway: the one and only stylesheet.
+ * Licence: CC BY-NC-SA 4.0
+ */
+:root {
+  --font-text: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --font-code: "Courier New", monospace;
+  --colour-bg: #f3ecdc;
+  --colour-surface: #fbf7ec;
+  --colour-ink: #2b2620;
+  --colour-ink-soft: #6b6254;
+  --colour-accent: #8a4b1f;
+  --colour-accent-ink: #fff8ee;
+  --colour-sea: #5f8fa6;
+  --colour-border: #d6c9ad;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 1rem;
+  --space-4: 2rem;
+  --radius: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --colour-bg: #1d1a16;
+    --colour-surface: #27231d;
+    --colour-ink: #efe6d3;
+    --colour-ink-soft: #a89d88;
+    --colour-accent: #d79b62;
+    --colour-accent-ink: #1d1a16;
+    --colour-border: #463e32;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--colour-bg);
+  color: var(--colour-ink);
+  font-family: var(--font-text);
+  line-height: 1.5;
+}
+
+code, pre { font-family: var(--font-code); }
+
+.page {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-3);
+}
+
+.card {
+  background: var(--colour-surface);
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+}
+
+.muted { color: var(--colour-ink-soft); }

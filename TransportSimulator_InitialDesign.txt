@@ -1,0 +1,19 @@
+I would like to construct a sandboxed environment similar to that which is seen in the Railroad Tycoon game.
+
+This is a complex multi-part simulation and this overall view will need to be extensively decomposed and described before a work schedule for a Claude Code agent is constructed.
+
+We are in this large fictional island (600 miles by 300 miles) which is randomly generated at the beginning of the simulation. There are rivers, bays, natural harbours, hills and mountains and flatlands. All of the land apart from the heights of the mountains are farmable (, some more suited to livestock, some more arable and some mixed agriculture), buildable or exploitable as an industrial location. Some industries need to be close to a river or the sea. There are a number of ports on the periphery in appropriate places like the outflow of large rivers, hamlets, towns, cites and a capital city. There is road and rail infrastructure between these places, but the capacity of this begins low and can be expanded by subsequent investment by the player. Populations will rise and fall as will job availability and relative economic confidence depending upon the social class that the population is distributed in) - a city might have a large and wealthy Upper and Middle class numbers but if in an Industrial Sector, the Working Class would also be large in number. A rural village might be made up of significantly larger Working Class population. 
+ 
+There are industries which produce raw materials and a chain of processing which converts so a mine might produce ore, a refinery produce iron or steel, a shipyard will build ships or a car plant build cars. This applies to food and commodities. Population or industry indicates demand and commercial development grows population and expansion of the places where the citizens live, or conversely where industry dwindles and jobs become scarcer, people will leave. Ports bring in imported goods.
+
+In Phase 1 
+I would like to build the conceptual model and the basics of the economic model including how this data is stored on a per logged-in user basis. The platform can use a variety of .json files for unchangeable options and MySQL/PHP for more dynamic and current information storage. This model should be able to function at a low level without significant transport links as a small trickle of activity will keep it ticking over inefficiently.
+
+In Phase 2
+In Phase two I would like to create a graphical model of this activity, using a scrollable canvas which can be zoomed in and out using the scroll wheel. We should be able to see the locations (and their fictional names floating above it), we should be able to see evidence of commercial activity and growth/shrinkage in population. Graphics quality should be high resolution and high quality to create a game-like environment in the browser.
+
+In Phase 3
+I want to be able to create logistics solutions to bring people and commodities to the right place. Trains may be passenger or freight. Roads may have trucks, buses and private cars (the latter not set by the user, but depending upon numbers of people and their economic security). The user can specify the type of freight or passenger on each train, truck or bus service which begins to shuttle passengers or commodies between the chosen destinations. Some schedules are multi-location and the freight lists can be changed (completely or partially depending upon demand) at each stop according to demand and some passengers may get on and off at each stop. The mony earned is derived from demand. There is an ongoing maintenance cost for each bus, train or truck which is calculated annually. At the end of each year tax is calculated (varied by economic prosperity on the whole island and maintenance costs are due. Profit is what is left over and the total amount of cash the player has determines the status/achievement of the player. There is only 1 player.
+
+
+
