@@ -22,21 +22,30 @@ function json_ok($data, int $status = 200)
 
 /**
  * Sends a JSON error response shaped as
- * { "error": { "code": "...", "message": "..." } } and ends the script.
+ * { "error": { "code": "...", "message": "...", "fields": {...} } } and
+ * ends the script. The "fields" key is only present when $fields is
+ * non-empty, for per-field validation messages.
  *
- * @param int    $status  HTTP status code.
- * @param string $code    Short machine-readable error code.
- * @param string $message Human-readable message.
+ * @param int                  $status  HTTP status code.
+ * @param string               $code    Short machine-readable error code.
+ * @param string               $message Human-readable message.
+ * @param array<string,string> $fields  Optional per-field error messages.
  * @return never
  */
-function json_error(int $status, string $code, string $message)
+function json_error(int $status, string $code, string $message, array $fields = [])
 {
     http_response_code($status);
-    echo json_encode([
+    $body = [
         'error' => [
             'code' => $code,
             'message' => $message,
         ],
-    ], JSON_UNESCAPED_SLASHES);
+    ];
+
+    if ($fields !== []) {
+        $body['error']['fields'] = $fields;
+    }
+
+    echo json_encode($body, JSON_UNESCAPED_SLASHES);
     exit();
 }

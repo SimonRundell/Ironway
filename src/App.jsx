@@ -1,13 +1,42 @@
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { useAuth } from './state/authContext.js'
+import LoginPage from './ui/LoginPage.jsx'
+import RegisterPage from './ui/RegisterPage.jsx'
+
 /**
- * Placeholder landing page for Ironway. Replaced by routing in T0.04.
+ * Root component and route table.
  * @module App
  */
 
 /**
- * Root component.
- * @returns {JSX.Element} The placeholder page.
+ * Renders its children only when signed in, otherwise redirects to login.
+ *
+ * @param {{children: import('react').ReactNode}} props
+ * @returns {JSX.Element|null}
  */
-export default function App() {
+function RequireAuth({ children }) {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return null
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  return children
+}
+
+/**
+ * Placeholder landing page for a signed-in player. Replaced by the
+ * inspector UI in T1.26.
+ *
+ * @returns {JSX.Element}
+ */
+function HomePage() {
+  const { user, logout } = useAuth()
+
   return (
     <main className="page">
       <div className="card">
@@ -15,8 +44,32 @@ export default function App() {
           <img className="brand-logo" src="/favicon.png" alt="Ironway" />
         </h1>
         <p>An economic and logistics sandbox on a generated island.</p>
-        <p className="muted">Phase 0: foundations. Nothing to see here yet.</p>
+        <p className="muted">Phase 0: foundations. Signed in as {user.username}.</p>
+        <button type="button" onClick={logout}>
+          Log out
+        </button>
       </div>
     </main>
+  )
+}
+
+/**
+ * Root component.
+ * @returns {JSX.Element} The route table.
+ */
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route
+        path="/"
+        element={
+          <RequireAuth>
+            <HomePage />
+          </RequireAuth>
+        }
+      />
+    </Routes>
   )
 }

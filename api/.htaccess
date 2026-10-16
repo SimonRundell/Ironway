@@ -8,6 +8,12 @@ Options -Indexes
 
 RewriteEngine On
 
+# Some Apache/PHP setups (CGI, FastCGI, some mod_php configs) don't pass
+# the Authorization header through to $_SERVER by default. Forward it
+# explicitly so bearer_token() in api/lib/auth.php can read it.
+RewriteCond %{HTTP:Authorization} ^(.*)
+RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 # Internal-only folders: SQL migrations, shared PHP libraries and CLI
 # tests. These are only ever required() by endpoint scripts in this
 # folder, never requested directly, so deny them outright.
