@@ -1,0 +1,15 @@
+# Never expose configuration or dot-files
+<FilesMatch "^\.(config\.json|env|git.*)$">
+  Require all denied
+</FilesMatch>
+
+RewriteEngine On
+
+# Let real files/directories (including /api/*) resolve normally.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Everything else falls back to index.html so React Router can handle
+# client-side routes (e.g. a hard refresh).
+RewriteRule ^ index.html [L]

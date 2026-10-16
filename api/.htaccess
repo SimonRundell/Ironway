@@ -1,0 +1,14 @@
+# Never expose configuration or dot-files
+<FilesMatch "^\.(config\.json|env|git.*)$">
+  Require all denied
+</FilesMatch>
+
+# No directory listings anywhere under /api
+Options -Indexes
+
+RewriteEngine On
+
+# Internal-only folders: SQL migrations, shared PHP libraries and CLI
+# tests. These are only ever required() by endpoint scripts in this
+# folder, never requested directly, so deny them outright.
+RewriteRule ^(sql|lib|tests)(/|$) - [F,L]

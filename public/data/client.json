@@ -1,0 +1,9 @@
+{
+  "apiBaseDev": "http://localhost/api",
+  "apiBaseProd": "/api",
+  "autosaveEveryGameMonths": 3,
+  "defaultSpeed": 1,
+  "ui": {
+    "showDebugPanel": true
+  }
+}
