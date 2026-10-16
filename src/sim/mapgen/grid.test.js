@@ -1,0 +1,88 @@
+import { describe, expect, it } from 'vitest'
+import { createWorldGrid, indexOf, isInBounds, neighbours4, neighbours8 } from './grid.js'
+
+describe('createWorldGrid', () => {
+  it('allocates every DESIGN 5.1 layer at the right size', () => {
+    const grid = createWorldGrid(10, 5, 2)
+
+    expect(grid.width).toBe(10)
+    expect(grid.height).toBe(5)
+    expect(grid.cellMiles).toBe(2)
+
+    for (const layer of [
+      'elev', 'water', 'flow', 'river', 'rain', 'soil', 'arable', 'pastoral',
+      'landuse', 'slope', 'coast', 'shelter', 'resource', 'richness', 'region',
+    ]) {
+      expect(grid[layer]).toBeDefined()
+      expect(grid[layer].length).toBe(50)
+    }
+  })
+
+  it('zeroes every layer initially', () => {
+    const grid = createWorldGrid(4, 4, 2)
+    expect([...grid.elev].every((v) => v === 0)).toBe(true)
+    expect([...grid.water].every((v) => v === 0)).toBe(true)
+  })
+
+  it('uses the right typed array kind per layer', () => {
+    const grid = createWorldGrid(4, 4, 2)
+    expect(grid.elev).toBeInstanceOf(Int16Array)
+    expect(grid.water).toBeInstanceOf(Uint8Array)
+    expect(grid.flow).toBeInstanceOf(Uint16Array)
+  })
+})
+
+describe('indexOf', () => {
+  it('maps (x, y) to a row-major index', () => {
+    const grid = createWorldGrid(10, 5, 2)
+    expect(indexOf(grid, 0, 0)).toBe(0)
+    expect(indexOf(grid, 9, 0)).toBe(9)
+    expect(indexOf(grid, 0, 1)).toBe(10)
+    expect(indexOf(grid, 3, 2)).toBe(23)
+  })
+})
+
+describe('isInBounds', () => {
+  const grid = createWorldGrid(10, 5, 2)
+
+  it('accepts corners and interior points', () => {
+    expect(isInBounds(grid, 0, 0)).toBe(true)
+    expect(isInBounds(grid, 9, 4)).toBe(true)
+    expect(isInBounds(grid, 5, 2)).toBe(true)
+  })
+
+  it('rejects anything outside the grid', () => {
+    expect(isInBounds(grid, -1, 0)).toBe(false)
+    expect(isInBounds(grid, 0, -1)).toBe(false)
+    expect(isInBounds(grid, 10, 0)).toBe(false)
+    expect(isInBounds(grid, 0, 5)).toBe(false)
+  })
+})
+
+describe('neighbours4', () => {
+  it('returns all 4 for an interior cell', () => {
+    const grid = createWorldGrid(10, 5, 2)
+    const result = neighbours4(grid, 5, 2)
+    expect(result).toHaveLength(4)
+    expect(result).toEqual(expect.arrayContaining([[6, 2], [4, 2], [5, 3], [5, 1]]))
+  })
+
+  it('returns only 2 for a corner cell', () => {
+    const grid = createWorldGrid(10, 5, 2)
+    const result = neighbours4(grid, 0, 0)
+    expect(result).toHaveLength(2)
+    expect(result).toEqual(expect.arrayContaining([[1, 0], [0, 1]]))
+  })
+})
+
+describe('neighbours8', () => {
+  it('returns all 8 for an interior cell', () => {
+    const grid = createWorldGrid(10, 5, 2)
+    expect(neighbours8(grid, 5, 2)).toHaveLength(8)
+  })
+
+  it('returns only 3 for a corner cell', () => {
+    const grid = createWorldGrid(10, 5, 2)
+    expect(neighbours8(grid, 0, 0)).toHaveLength(3)
+  })
+})

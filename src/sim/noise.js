@@ -34,12 +34,14 @@ function latticeHash(seed, ix, iy) {
 /**
  * Ken Perlin's improved fade curve: a quintic polynomial with zero
  * first and second derivatives at 0 and 1, so interpolated lattices
- * join smoothly. Polynomial only, no trig.
+ * join smoothly. Polynomial only, no trig. Exported because it is a
+ * generally useful smooth-step style easing curve beyond noise itself
+ * (e.g. the island mask's edge falloff in sim/mapgen/island.js).
  *
  * @param {number} t A value in [0, 1].
  * @returns {number} The eased value in [0, 1].
  */
-function fade(t) {
+export function fade(t) {
   return t * t * t * (t * (t * 6 - 15) + 10)
 }
 
