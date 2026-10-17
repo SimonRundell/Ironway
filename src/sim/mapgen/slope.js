@@ -5,23 +5,10 @@
  * @module sim/mapgen/slope
  */
 
-import { indexOf } from './grid.js'
+import { clampByte, indexOf } from './grid.js'
 
 /** Metres per mile, for converting a metres-per-mile gradient to a dimensionless rise/run ratio. */
 const METRES_PER_MILE = 1609.344
-
-/**
- * Clamps and rounds a value to a Uint8-safe byte (0 to 255).
- *
- * @param {number} value The value to clamp.
- * @returns {number} An integer in [0, 255].
- */
-function clampByte(value) {
-  const rounded = Math.floor(value + 0.5)
-  if (rounded < 0) return 0
-  if (rounded > 255) return 255
-  return rounded
-}
 
 /**
  * Generates the slope layer (step 8): the elevation gradient magnitude

@@ -19,10 +19,18 @@
     "rayCount": 16,
     "rayMaxMiles": 20,
     "bayShelterThreshold": 0.6,
-    "portRiverFlowThreshold": 3000,
+    "portRiverFlowThreshold": 500,
     "harbourMinSpacingMiles": 40,
     "minHarbourCandidates": 10,
-    "minEstuaryHarbours": 3
+    "minEstuaryHarbours": 3,
+    "cliffSlopeRatio": 0.25,
+    "estuaryBonus": 0.3,
+    "shoreDepthSearchRadiusMiles": 8,
+    "shoreDepthScaleMetres": 80,
+    "shoreDepthWeight": 0.3,
+    "mudflatSlopeRatio": 0.02,
+    "mudflatShoreDepthMax": 0.15,
+    "mudflatPenalty": 0.3
   },
   "soil": {
     "mountainLineMetres": 900,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createWorldGrid, indexOf, isInBounds, neighbours4, neighbours8 } from './grid.js'
+import { clampByte, createWorldGrid, indexOf, isInBounds, neighbours4, neighbours8 } from './grid.js'
 
 describe('createWorldGrid', () => {
   it('allocates every DESIGN 5.1 layer at the right size', () => {
@@ -84,5 +84,26 @@ describe('neighbours8', () => {
   it('returns only 3 for a corner cell', () => {
     const grid = createWorldGrid(10, 5, 2)
     expect(neighbours8(grid, 0, 0)).toHaveLength(3)
+  })
+})
+
+describe('clampByte', () => {
+  it('rounds to the nearest integer', () => {
+    expect(clampByte(10.4)).toBe(10)
+    expect(clampByte(10.5)).toBe(11)
+  })
+
+  it('clamps below 0 to 0', () => {
+    expect(clampByte(-5)).toBe(0)
+  })
+
+  it('clamps above 255 to 255', () => {
+    expect(clampByte(300)).toBe(255)
+  })
+
+  it('passes through values already in range', () => {
+    expect(clampByte(0)).toBe(0)
+    expect(clampByte(255)).toBe(255)
+    expect(clampByte(128)).toBe(128)
   })
 })

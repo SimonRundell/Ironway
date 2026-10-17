@@ -9,7 +9,7 @@
  * @module sim/mapgen/climate
  */
 
-import { indexOf } from './grid.js'
+import { clampByte, indexOf } from './grid.js'
 
 /** @type {Record<string, {axis: 'x'|'y', step: 1|-1}>} Scan axis and direction moisture travels for each wind. */
 const WIND_AXES = {
@@ -17,19 +17,6 @@ const WIND_AXES = {
   east: { axis: 'x', step: -1 },
   north: { axis: 'y', step: 1 },
   south: { axis: 'y', step: -1 },
-}
-
-/**
- * Clamps and rounds a value to a Uint8-safe byte (0 to 255).
- *
- * @param {number} value The value to clamp.
- * @returns {number} An integer in [0, 255].
- */
-function clampByte(value) {
-  const rounded = Math.floor(value + 0.5)
-  if (rounded < 0) return 0
-  if (rounded > 255) return 255
-  return rounded
 }
 
 /**

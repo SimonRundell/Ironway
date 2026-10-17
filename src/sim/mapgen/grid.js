@@ -8,6 +8,21 @@
  * @module sim/mapgen/grid
  */
 
+/**
+ * Clamps and rounds a value to a Uint8-safe byte (0 to 255). Shared by
+ * every generation step that packs a continuous value into a byte
+ * layer (rain, slope, shelter).
+ *
+ * @param {number} value The value to clamp.
+ * @returns {number} An integer in [0, 255].
+ */
+export function clampByte(value) {
+  const rounded = Math.floor(value + 0.5)
+  if (rounded < 0) return 0
+  if (rounded > 255) return 255
+  return rounded
+}
+
 /** @type {readonly [number, number][]} The 4 orthogonal neighbour offsets. */
 const OFFSETS_4 = Object.freeze([[1, 0], [-1, 0], [0, 1], [0, -1]])
 
