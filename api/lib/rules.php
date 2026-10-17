@@ -81,7 +81,7 @@ function ironway_class_ids(): array
  * Returns the save limits from .config.json: the caps a checkpoint
  * payload must stay within.
  *
- * @return array{maxSavesPerUser: int, maxAdvanceDaysPerCheckpoint: int, maxCheckpointBytes: int}
+ * @return array{maxSavesPerUser: int, maxAdvanceDaysPerCheckpoint: int, maxCheckpointBytes: int, maxCreateBytes: int}
  */
 function ironway_save_limits(): array
 {

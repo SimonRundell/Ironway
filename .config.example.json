@@ -1,6 +1,6 @@
 {
   "db": { "host": "localhost", "name": "ironway", "user": "root", "pass": "", "charset": "utf8mb4" },
   "auth": { "sessionDays": 30, "allowRegistration": true, "minPasswordLength": 10 },
-  "limits": { "maxSavesPerUser": 10, "maxAdvanceDaysPerCheckpoint": 1080, "maxCheckpointBytes": 4000000 },
+  "limits": { "maxSavesPerUser": 10, "maxAdvanceDaysPerCheckpoint": 1080, "maxCheckpointBytes": 4000000, "maxCreateBytes": 8000000 },
   "staticDataDir": "../public/data"
 }
