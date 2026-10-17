@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Debug tool for T1.03/T1.04: generates an island for one or more
- * seeds and writes an ASCII preview of each into scripts/out/, for a
- * human to eyeball the island mask, mountains, coastline, lakes and
- * rivers.
+ * Debug tool for T1.03-T1.06: generates an island for one or more
+ * seeds and writes ASCII previews of each into scripts/out/, for a
+ * human to eyeball the island mask, mountains, coastline, lakes,
+ * rivers, land use and resource deposits.
  *
  * Usage:
  *   node scripts/mapgen-preview.mjs [seed ...]
@@ -20,6 +20,8 @@ import { generateRain } from '../src/sim/mapgen/climate.js'
 import { generateHydrology } from '../src/sim/mapgen/hydrology.js'
 import { generateSlope } from '../src/sim/mapgen/slope.js'
 import { generateCoast } from '../src/sim/mapgen/coast.js'
+import { generateSoil } from '../src/sim/mapgen/soil.js'
+import { generateResources, RESOURCE } from '../src/sim/mapgen/resources.js'
 
 const DEFAULT_SEEDS = ['ironway-001', 'ironway-002', 'ironway-003', 'ironway-004', 'ironway-005']
 
@@ -27,6 +29,27 @@ const DEFAULT_SEEDS = ['ironway-001', 'ironway-002', 'ironway-003', 'ironway-004
 const SEA_RAMP = [' ', '.', ':']
 const LAND_RAMP = [',', '-', '+', '*', '^', '#', '@']
 const LAKE_CHAR = '~'
+
+/** @type {Record<string, string>} One ASCII character per `landuseEnum` class. */
+const LANDUSE_CHARS = {
+  sea: ' ',
+  lake: '~',
+  arable: 'a',
+  mixed: 'm',
+  pastoral: 'p',
+  forest: 'f',
+  moor: 'o',
+  marsh: 'w',
+  rock: '^',
+}
+
+/** @type {Record<number, string>} One ASCII character per `RESOURCE` enum value, drawn over land use. */
+const RESOURCE_CHARS = {
+  [RESOURCE.COAL]: 'C',
+  [RESOURCE.IRON]: 'I',
+  [RESOURCE.STONE]: 'S',
+  [RESOURCE.CLAY]: 'Y',
+}
 
 /**
  * Renders a grid's water/elev/river/coast layers as a plain-text ASCII
@@ -70,6 +93,35 @@ function renderAscii(grid, mountainLineMetres, estuaryHarbourIndices, plainHarbo
   return lines.join('\n') + '\n'
 }
 
+/**
+ * Renders a grid's land-use layer as a plain-text ASCII map, one
+ * character per `landuseEnum` class, with resource deposits drawn over
+ * the top as a capital letter (coal, iron, stone, clay).
+ *
+ * @param {object} grid A generated world grid, after generateSoil() and generateResources().
+ * @param {string[]} landuseEnum terrain.json's `landuseEnum`.
+ * @returns {string} The rendered map, one line per row.
+ */
+function renderLanduse(grid, landuseEnum) {
+  const lines = []
+
+  for (let y = 0; y < grid.height; y++) {
+    let line = ''
+    for (let x = 0; x < grid.width; x++) {
+      const i = indexOf(grid, x, y)
+      const resourceChar = RESOURCE_CHARS[grid.resource[i]]
+      if (resourceChar) {
+        line += resourceChar
+      } else {
+        line += LANDUSE_CHARS[landuseEnum[grid.landuse[i]]] ?? '?'
+      }
+    }
+    lines.push(line)
+  }
+
+  return lines.join('\n') + '\n'
+}
+
 async function main() {
   const seeds = process.argv.slice(2).length > 0 ? process.argv.slice(2) : DEFAULT_SEEDS
   const rules = await loadRulesNode('public/data')
@@ -84,17 +136,21 @@ async function main() {
     generateHydrology(grid, rules.mapgen.hydrology)
     generateSlope(grid, rules.mapgen.slope)
     const { harbourCandidates } = generateCoast(grid, rules.mapgen)
+    generateSoil(grid, seed, rules.mapgen, rules.terrain)
+    const deposits = generateResources(grid, seed, rules.mapgen)
     const elapsedMs = Date.now() - start
 
     let land = 0
     let lake = 0
     let river = 0
     let rockCells = 0
+    const landuseCounts = {}
     for (let i = 0; i < grid.water.length; i++) {
       if (grid.water[i] === 0) land++
       if (grid.water[i] === 2) lake++
       if (grid.river[i] > 0) river++
       if (grid.elev[i] >= rules.mapgen.soil.mountainLineMetres) rockCells++
+      landuseCounts[grid.landuse[i]] = (landuseCounts[grid.landuse[i]] ?? 0) + 1
     }
 
     const estuaryHarbourIndices = new Set(harbourCandidates.filter((c) => c.isEstuary).map((c) => c.index))
@@ -104,11 +160,27 @@ async function main() {
     const outPath = `scripts/out/${seed}.txt`
     writeFileSync(outPath, ascii)
 
+    const landuseAscii = renderLanduse(grid, rules.terrain.landuseEnum)
+    const landuseOutPath = `scripts/out/${seed}-landuse.txt`
+    writeFileSync(landuseOutPath, landuseAscii)
+
+    const landuseIndex = {}
+    rules.terrain.landuseEnum.forEach((name, index) => { landuseIndex[name] = index })
+    const pct = (name) => (100 * (landuseCounts[landuseIndex[name]] ?? 0) / land).toFixed(1)
+
     const landFraction = (land / grid.water.length * 100).toFixed(1)
     console.log(
       `${seed}: ${elapsedMs}ms, land ${landFraction}%, rock cells ${rockCells}, ` +
       `lake cells ${lake}, river cells ${river}, harbours ${harbourCandidates.length} ` +
       `(${estuaryHarbourIndices.size} estuary) -> ${outPath}`,
+    )
+    console.log(
+      `  land use: arable ${pct('arable')}%, pastoral ${pct('pastoral')}%, forest ${pct('forest')}%, ` +
+      `marsh ${pct('marsh')}%, mixed ${pct('mixed')}%, moor ${pct('moor')}%, rock ${pct('rock')}% -> ${landuseOutPath}`,
+    )
+    console.log(
+      `  resources: coal ${deposits.coal.length}, iron ${deposits.iron.length}, ` +
+      `stone ${deposits.stone.length}, clay ${deposits.clay.length}`,
     )
   }
 }

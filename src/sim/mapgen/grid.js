@@ -93,6 +93,51 @@ export function isInBounds(grid, x, y) {
 }
 
 /**
+ * Multi-source breadth-first distance, in cells, from every cell to the
+ * nearest cell matching `isSource`. Shared by any step that needs "how
+ * far is this cell from X" (coast's distance-to-land, soil's distance
+ * to a river or river mouth).
+ *
+ * @param {{width: number, height: number}} grid The world grid.
+ * @param {(index: number) => boolean} isSource Returns true for source cells (distance 0).
+ * @returns {Int32Array} Distance in cells; -1 if unreachable (never happens on a fully connected grid with at least one source).
+ */
+export function computeDistanceFromSources(grid, isSource) {
+  const { width, height } = grid
+  const size = width * height
+  const distance = new Int32Array(size).fill(-1)
+  const queue = new Int32Array(size)
+  let head = 0
+  let tail = 0
+
+  for (let i = 0; i < size; i++) {
+    if (isSource(i)) {
+      distance[i] = 0
+      queue[tail++] = i
+    }
+  }
+
+  while (head < tail) {
+    const i = queue[head++]
+    const x = i % width
+    const y = Math.floor(i / width)
+
+    for (const [dx, dy] of OFFSETS_8) {
+      const nx = x + dx
+      const ny = y + dy
+      if (!isInBounds(grid, nx, ny)) continue
+      const ni = indexOf(grid, nx, ny)
+      if (distance[ni] === -1) {
+        distance[ni] = distance[i] + 1
+        queue[tail++] = ni
+      }
+    }
+  }
+
+  return distance
+}
+
+/**
  * Lists the in-bounds orthogonal (4-connected) neighbours of a cell.
  *
  * @param {{width: number, height: number}} grid The world grid.

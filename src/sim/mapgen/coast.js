@@ -7,7 +7,7 @@
  * @module sim/mapgen/coast
  */
 
-import { clampByte, indexOf, isInBounds } from './grid.js'
+import { clampByte, computeDistanceFromSources, indexOf, isInBounds } from './grid.js'
 
 /** @type {readonly [number, number][]} All 8 neighbour offsets. */
 const NEIGHBOUR_OFFSETS_8 = Object.freeze([
@@ -95,56 +95,13 @@ function markCoastalFlags(grid, mapgenRules) {
 }
 
 /**
- * Multi-source breadth-first distance, in cells, from every sea cell to
- * the nearest non-sea (land or lake) cell. Used to skip ray casting for
- * sea cells too far from any coast to matter.
- *
- * @param {{width: number, height: number, water: Uint8Array}} grid The world grid.
- * @returns {Int32Array} Distance in cells, 0 for non-sea cells.
- */
-function computeDistanceToLandCells(grid) {
-  const { width, height, water } = grid
-  const size = width * height
-  const distance = new Int32Array(size).fill(-1)
-  const queue = new Int32Array(size)
-  let head = 0
-  let tail = 0
-
-  for (let i = 0; i < size; i++) {
-    if (water[i] !== 1) {
-      distance[i] = 0
-      queue[tail++] = i
-    }
-  }
-
-  while (head < tail) {
-    const i = queue[head++]
-    const x = i % width
-    const y = Math.floor(i / width)
-
-    for (const [dx, dy] of NEIGHBOUR_OFFSETS_8) {
-      const nx = x + dx
-      const ny = y + dy
-      if (!isInBounds(grid, nx, ny)) continue
-      const ni = indexOf(grid, nx, ny)
-      if (distance[ni] === -1) {
-        distance[ni] = distance[i] + 1
-        queue[tail++] = ni
-      }
-    }
-  }
-
-  return distance
-}
-
-/**
  * Casts 16 rays from every sea cell within `shelterRadiusMiles` of land
  * and records the fraction blocked by land within `rayMaxMiles` as the
  * `shelter` layer (step 9, part 2).
  *
  * @param {object} grid The world grid (shelter is written).
  * @param {{shelterRadiusMiles: number, rayMaxMiles: number}} coastParams mapgen.json's coast settings.
- * @param {Int32Array} distanceToLandCells From computeDistanceToLandCells().
+ * @param {Int32Array} distanceToLandCells From computeDistanceFromSources(grid, i => water[i] !== 1).
  * @returns {void}
  */
 function computeShelter(grid, coastParams, distanceToLandCells) {
@@ -395,7 +352,7 @@ export function selectHarbourCandidates(grid, candidates, coastParams) {
 export function generateCoast(grid, mapgenRules) {
   markCoastalFlags(grid, mapgenRules)
 
-  const distanceToLandCells = computeDistanceToLandCells(grid)
+  const distanceToLandCells = computeDistanceFromSources(grid, (i) => grid.water[i] !== 1)
   computeShelter(grid, mapgenRules.coast, distanceToLandCells)
 
   const bayRegions = findBayRegions(grid, mapgenRules.coast.bayShelterThreshold)

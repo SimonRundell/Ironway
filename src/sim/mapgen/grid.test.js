@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampByte, createWorldGrid, indexOf, isInBounds, neighbours4, neighbours8 } from './grid.js'
+import { clampByte, computeDistanceFromSources, createWorldGrid, indexOf, isInBounds, neighbours4, neighbours8 } from './grid.js'
 
 describe('createWorldGrid', () => {
   it('allocates every DESIGN 5.1 layer at the right size', () => {
@@ -105,5 +105,34 @@ describe('clampByte', () => {
     expect(clampByte(0)).toBe(0)
     expect(clampByte(255)).toBe(255)
     expect(clampByte(128)).toBe(128)
+  })
+})
+
+describe('computeDistanceFromSources', () => {
+  it('gives sources distance 0 and grows outward by 1 per step', () => {
+    // 5x1 strip, source at the left end.
+    const grid = createWorldGrid(5, 1, 2)
+    const distance = computeDistanceFromSources(grid, (i) => i === 0)
+    expect([...distance]).toEqual([0, 1, 2, 3, 4])
+  })
+
+  it('takes the shortest distance to any of several sources', () => {
+    // 5x1 strip, sources at both ends: the middle cell is 2 away from either.
+    const grid = createWorldGrid(5, 1, 2)
+    const distance = computeDistanceFromSources(grid, (i) => i === 0 || i === 4)
+    expect([...distance]).toEqual([0, 1, 2, 1, 0])
+  })
+
+  it('counts a diagonal step as distance 1 (8-connected)', () => {
+    const grid = createWorldGrid(3, 3, 2)
+    const distance = computeDistanceFromSources(grid, (i) => i === 0) // (0,0)
+    expect(distance[indexOf(grid, 1, 1)]).toBe(1) // diagonal neighbour
+    expect(distance[indexOf(grid, 2, 2)]).toBe(2)
+  })
+
+  it('leaves every cell at -1 when there are no sources', () => {
+    const grid = createWorldGrid(3, 3, 2)
+    const distance = computeDistanceFromSources(grid, () => false)
+    expect([...distance].every((d) => d === -1)).toBe(true)
   })
 })
