@@ -468,7 +468,7 @@ function validateTerrain(data) {
 function validateSettlements(data) {
   const file = 'settlements'
 
-  for (const field of ['kinds', 'classSplitPercent', 'initialHousingCapacityFactor']) {
+  for (const field of ['kinds', 'classSplitPercent', 'initialHousingCapacityFactor', 'placement']) {
     requireField(data, field, file, '(root)')
   }
 

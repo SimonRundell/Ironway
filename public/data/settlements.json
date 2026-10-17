@@ -14,5 +14,25 @@
     "city_trading": { "upper": 8, "middle": 32, "working": 60 },
     "capital": { "upper": 12, "middle": 38, "working": 50 }
   },
-  "initialHousingCapacityFactor": 1.05
+  "initialHousingCapacityFactor": 1.05,
+  "placement": {
+    "fertilityRadiusMiles": 10,
+    "freshWaterRadiusMiles": 4,
+    "resourceRadiusMiles": 8,
+    "jitterStrength": 0.15,
+    "fertilityWeight": 0.3,
+    "freshWaterWeight": 0.2,
+    "flatnessWeight": 0.2,
+    "confluenceBonus": 0.1,
+    "harbourWeight": 0.2,
+    "coastalBonusFraction": 0.4,
+    "resourceWeight": 0.15,
+    "marshPenalty": 0.5,
+    "capitalHarbourRadiusMiles": 12,
+    "capitalCentralityWeight": 0.3,
+    "capitalFertilityWeight": 0.3,
+    "capitalHarbourWeight": 0.4,
+    "popFractionFloor": 0.4,
+    "portTierByKind": { "capital": 3, "city": 2, "town": 1, "village": 1, "hamlet": 1 }
+  }
 }

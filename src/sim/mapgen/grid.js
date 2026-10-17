@@ -64,7 +64,7 @@ export function createWorldGrid(width, height, cellMiles) {
     shelter: new Uint8Array(size),
     resource: new Uint8Array(size),
     richness: new Uint8Array(size),
-    region: new Uint8Array(size),
+    region: new Uint16Array(size),
   }
 }
 

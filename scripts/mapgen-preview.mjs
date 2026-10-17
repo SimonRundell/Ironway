@@ -22,6 +22,8 @@ import { generateSlope } from '../src/sim/mapgen/slope.js'
 import { generateCoast } from '../src/sim/mapgen/coast.js'
 import { generateSoil } from '../src/sim/mapgen/soil.js'
 import { generateResources, RESOURCE } from '../src/sim/mapgen/resources.js'
+import { generateSettlements } from '../src/sim/mapgen/settlements.js'
+import { createNameGenerator } from '../src/sim/names.js'
 
 const DEFAULT_SEEDS = ['ironway-001', 'ironway-002', 'ironway-003', 'ironway-004', 'ironway-005']
 
@@ -49,6 +51,15 @@ const RESOURCE_CHARS = {
   [RESOURCE.IRON]: 'I',
   [RESOURCE.STONE]: 'S',
   [RESOURCE.CLAY]: 'Y',
+}
+
+/** @type {Record<string, string>} One ASCII character per settlement kind, drawn over everything else. */
+const SETTLEMENT_CHARS = {
+  capital: '#',
+  city: 'O',
+  town: 'T',
+  village: 'V',
+  hamlet: 'H',
 }
 
 /**
@@ -100,17 +111,21 @@ function renderAscii(grid, mountainLineMetres, estuaryHarbourIndices, plainHarbo
  *
  * @param {object} grid A generated world grid, after generateSoil() and generateResources().
  * @param {string[]} landuseEnum terrain.json's `landuseEnum`.
+ * @param {Map<number, string>} settlementChars Cell index to settlement-kind character, drawn over everything else.
  * @returns {string} The rendered map, one line per row.
  */
-function renderLanduse(grid, landuseEnum) {
+function renderLanduse(grid, landuseEnum, settlementChars) {
   const lines = []
 
   for (let y = 0; y < grid.height; y++) {
     let line = ''
     for (let x = 0; x < grid.width; x++) {
       const i = indexOf(grid, x, y)
+      const settlementChar = settlementChars.get(i)
       const resourceChar = RESOURCE_CHARS[grid.resource[i]]
-      if (resourceChar) {
+      if (settlementChar) {
+        line += settlementChar
+      } else if (resourceChar) {
         line += resourceChar
       } else {
         line += LANDUSE_CHARS[landuseEnum[grid.landuse[i]]] ?? '?'
@@ -138,6 +153,8 @@ async function main() {
     const { harbourCandidates } = generateCoast(grid, rules.mapgen)
     generateSoil(grid, seed, rules.mapgen, rules.terrain)
     const deposits = generateResources(grid, seed, rules.mapgen)
+    const nameGen = createNameGenerator(seed, rules.names)
+    const settlements = generateSettlements(grid, seed, rules.mapgen, rules.settlements, rules.terrain, rules.classes, nameGen)
     const elapsedMs = Date.now() - start
 
     let land = 0
@@ -160,7 +177,14 @@ async function main() {
     const outPath = `scripts/out/${seed}.txt`
     writeFileSync(outPath, ascii)
 
-    const landuseAscii = renderLanduse(grid, rules.terrain.landuseEnum)
+    const settlementChars = new Map()
+    for (const s of settlements) {
+      const sx = Math.round(s.x / grid.cellMiles)
+      const sy = Math.round(s.y / grid.cellMiles)
+      settlementChars.set(indexOf(grid, sx, sy), SETTLEMENT_CHARS[s.kind] ?? '?')
+    }
+
+    const landuseAscii = renderLanduse(grid, rules.terrain.landuseEnum, settlementChars)
     const landuseOutPath = `scripts/out/${seed}-landuse.txt`
     writeFileSync(landuseOutPath, landuseAscii)
 
@@ -181,6 +205,16 @@ async function main() {
     console.log(
       `  resources: coal ${deposits.coal.length}, iron ${deposits.iron.length}, ` +
       `stone ${deposits.stone.length}, clay ${deposits.clay.length}`,
+    )
+
+    const byKind = {}
+    for (const s of settlements) (byKind[s.kind] ??= []).push(s)
+    const totalPop = settlements.reduce((sum, s) => sum + Object.values(s.pop).reduce((a, c) => a + c.pop, 0), 0)
+    const ports = settlements.filter((s) => s.portTier > 0).length
+    console.log(
+      `  settlements: capital ${byKind.capital?.length ?? 0}, city ${byKind.city?.length ?? 0}, ` +
+      `town ${byKind.town?.length ?? 0}, village ${byKind.village?.length ?? 0}, hamlet ${byKind.hamlet?.length ?? 0}, ` +
+      `ports ${ports}, total population ${totalPop.toLocaleString()}`,
     )
   }
 }
