@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Debug tool for T1.03-T1.06: generates an island for one or more
+ * Debug tool for T1.03-T1.10: generates an island for one or more
  * seeds and writes ASCII previews of each into scripts/out/, for a
  * human to eyeball the island mask, mountains, coastline, lakes,
- * rivers, land use and resource deposits.
+ * rivers, land use, resource deposits, settlements and the link
+ * network.
  *
  * Usage:
  *   node scripts/mapgen-preview.mjs [seed ...]
@@ -23,6 +24,7 @@ import { generateCoast } from '../src/sim/mapgen/coast.js'
 import { generateSoil } from '../src/sim/mapgen/soil.js'
 import { generateResources, RESOURCE } from '../src/sim/mapgen/resources.js'
 import { generateSettlements } from '../src/sim/mapgen/settlements.js'
+import { generateLinks } from '../src/sim/mapgen/links.js'
 import { createNameGenerator } from '../src/sim/names.js'
 
 const DEFAULT_SEEDS = ['ironway-001', 'ironway-002', 'ironway-003', 'ironway-004', 'ironway-005']
@@ -137,6 +139,102 @@ function renderLanduse(grid, landuseEnum, settlementChars) {
   return lines.join('\n') + '\n'
 }
 
+/** @type {Record<string, string>} One ASCII character per link mode, drawn over the sea/land background. */
+const LINK_CHARS = { road: 'o', rail: '=', sea: '-' }
+
+/** @type {Record<string, number>} Draw priority when two link modes overlap the same cell; higher wins. */
+const LINK_PRIORITY = { sea: 1, road: 2, rail: 3 }
+
+/**
+ * Bresenham's line algorithm between two grid cells, so a link's
+ * sparse, simplified `path` waypoints can be drawn as a continuous
+ * line in the ASCII preview.
+ *
+ * @param {number} x0 Start x.
+ * @param {number} y0 Start y.
+ * @param {number} x1 End x.
+ * @param {number} y1 End y.
+ * @returns {[number, number][]} Every cell the line crosses, inclusive of both ends.
+ */
+function rasterizeLine(x0, y0, x1, y1) {
+  const points = []
+  const dx = Math.abs(x1 - x0)
+  const dy = Math.abs(y1 - y0)
+  const sx = x1 > x0 ? 1 : -1
+  const sy = y1 > y0 ? 1 : -1
+  let x = x0
+  let y = y0
+  let err = dx - dy
+
+  while (true) {
+    points.push([x, y])
+    if (x === x1 && y === y1) break
+    const e2 = 2 * err
+    if (e2 > -dy) { err -= dy; x += sx }
+    if (e2 < dx) { err += dx; y += sy }
+  }
+
+  return points
+}
+
+/**
+ * Renders the link network over a plain sea/land background: roads
+ * (`o`), rail (`=`) and sea lanes (`-`), with settlement markers drawn
+ * on top of everything. Virtual world links (no real path) are
+ * skipped.
+ *
+ * @param {object} grid A generated world grid.
+ * @param {import('../src/sim/state.js').Settlement[]} settlements Placed settlements.
+ * @param {import('../src/sim/state.js').Link[]} links Generated links.
+ * @returns {string} The rendered map, one line per row.
+ */
+function renderLinks(grid, settlements, links) {
+  const drawn = new Map()
+
+  for (const link of links) {
+    if (link.bType === 'w') continue
+    const ch = LINK_CHARS[link.mode]
+    const priority = LINK_PRIORITY[link.mode]
+
+    for (let i = 1; i < link.path.length; i++) {
+      const x0 = Math.round(link.path[i - 1][0] / grid.cellMiles)
+      const y0 = Math.round(link.path[i - 1][1] / grid.cellMiles)
+      const x1 = Math.round(link.path[i][0] / grid.cellMiles)
+      const y1 = Math.round(link.path[i][1] / grid.cellMiles)
+
+      for (const [x, y] of rasterizeLine(x0, y0, x1, y1)) {
+        if (x < 0 || x >= grid.width || y < 0 || y >= grid.height) continue
+        const key = indexOf(grid, x, y)
+        const existing = drawn.get(key)
+        if (!existing || priority >= existing.priority) drawn.set(key, { ch, priority })
+      }
+    }
+  }
+
+  for (const s of settlements) {
+    const x = Math.round(s.x / grid.cellMiles)
+    const y = Math.round(s.y / grid.cellMiles)
+    drawn.set(indexOf(grid, x, y), { ch: SETTLEMENT_CHARS[s.kind] ?? '?', priority: Infinity })
+  }
+
+  const lines = []
+  for (let y = 0; y < grid.height; y++) {
+    let line = ''
+    for (let x = 0; x < grid.width; x++) {
+      const i = indexOf(grid, x, y)
+      const cell = drawn.get(i)
+      if (cell) {
+        line += cell.ch
+      } else {
+        line += grid.water[i] === 1 ? ' ' : grid.water[i] === 2 ? '~' : '.'
+      }
+    }
+    lines.push(line)
+  }
+
+  return lines.join('\n') + '\n'
+}
+
 async function main() {
   const seeds = process.argv.slice(2).length > 0 ? process.argv.slice(2) : DEFAULT_SEEDS
   const rules = await loadRulesNode('public/data')
@@ -155,6 +253,7 @@ async function main() {
     const deposits = generateResources(grid, seed, rules.mapgen)
     const nameGen = createNameGenerator(seed, rules.names)
     const settlements = generateSettlements(grid, seed, rules.mapgen, rules.settlements, rules.terrain, rules.classes, nameGen)
+    const links = generateLinks(grid, seed, rules.mapgen, rules.terrain, settlements)
     const elapsedMs = Date.now() - start
 
     let land = 0
@@ -215,6 +314,20 @@ async function main() {
       `  settlements: capital ${byKind.capital?.length ?? 0}, city ${byKind.city?.length ?? 0}, ` +
       `town ${byKind.town?.length ?? 0}, village ${byKind.village?.length ?? 0}, hamlet ${byKind.hamlet?.length ?? 0}, ` +
       `ports ${ports}, total population ${totalPop.toLocaleString()}`,
+    )
+
+    const linksAscii = renderLinks(grid, settlements, links)
+    const linksOutPath = `scripts/out/${seed}-links.txt`
+    writeFileSync(linksOutPath, linksAscii)
+
+    const roadMiles = links.filter((l) => l.mode === 'road').reduce((sum, l) => sum + l.lengthMi, 0)
+    const railMiles = links.filter((l) => l.mode === 'rail').reduce((sum, l) => sum + l.lengthMi, 0)
+    const seaMiles = links.filter((l) => l.mode === 'sea' && l.bType === 's').reduce((sum, l) => sum + l.lengthMi, 0)
+    console.log(
+      `  links: road ${links.filter((l) => l.mode === 'road').length} (${roadMiles.toFixed(0)}mi), ` +
+      `rail ${links.filter((l) => l.mode === 'rail').length} (${railMiles.toFixed(0)}mi, ${(100 * railMiles / roadMiles).toFixed(1)}% of road), ` +
+      `sea ${links.filter((l) => l.mode === 'sea' && l.bType === 's').length} (${seaMiles.toFixed(0)}mi), ` +
+      `world ${links.filter((l) => l.bType === 'w').length} -> ${linksOutPath}`,
     )
   }
 }

@@ -338,6 +338,54 @@ export function floodFillLandmasses(grid) {
 }
 
 /**
+ * Finds all 8-connected sea components (cells where water === 1).
+ * 8-connected to match the adjacency links.js's A* routing actually
+ * uses: a component that looks connected only through a diagonal step
+ * is still one navigable body of water as far as a sea lane is
+ * concerned.
+ *
+ * @param {{width: number, height: number, water: Uint8Array}} grid The world grid.
+ * @returns {number[][]} One array of cell indices per connected component.
+ */
+function floodFillSeaComponents(grid) {
+  const { width, height, water } = grid
+  const size = width * height
+  const visited = new Uint8Array(size)
+  const components = []
+
+  for (let start = 0; start < size; start++) {
+    if (water[start] !== 1 || visited[start]) continue
+
+    const component = []
+    const stack = [start]
+    visited[start] = 1
+
+    while (stack.length > 0) {
+      const i = stack.pop()
+      component.push(i)
+
+      const x = i % width
+      const y = Math.floor(i / width)
+
+      for (const [dx, dy] of NEIGHBOUR_OFFSETS_8) {
+        const nx = x + dx
+        const ny = y + dy
+        if (!isInBounds(grid, nx, ny)) continue
+        const ni = indexOf(grid, nx, ny)
+        if (water[ni] === 1 && !visited[ni]) {
+          visited[ni] = 1
+          stack.push(ni)
+        }
+      }
+    }
+
+    components.push(component)
+  }
+
+  return components
+}
+
+/**
  * Selects sea level and filters landmasses (step 4): picks a
  * percentile of the height field so land covers a seed-chosen fraction
  * of the grid within the configured band, keeps only the single
@@ -397,6 +445,26 @@ function applySeaLevelAndLandmassFilter(grid, heightField, seed, params, marginC
     if (!kept.has(component)) {
       for (const i of component) {
         water[i] = 1
+      }
+    }
+  }
+
+  // The percentile threshold above only ever checks land connectivity;
+  // it can just as easily leave behind a tiny sea pocket (seen in
+  // practice: a 2-cell pocket at a river mouth) that is water by
+  // height alone but has no 8-connected path to the open ocean at all.
+  // A port built next to one would get a sea lane that can never
+  // actually reach another port. Keep only the single largest sea
+  // component as navigable sea; fold every smaller, disconnected one
+  // back into land, where the elevation scaling below gives it a
+  // normal low-lying land height (it typically ends up marsh once
+  // soil.js runs, which is exactly what a landlocked wet hollow is).
+  const seaComponents = floodFillSeaComponents(grid)
+  if (seaComponents.length > 1) {
+    seaComponents.sort((a, b) => b.length - a.length)
+    for (let c = 1; c < seaComponents.length; c++) {
+      for (const i of seaComponents[c]) {
+        water[i] = 0
       }
     }
   }

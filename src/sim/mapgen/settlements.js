@@ -11,6 +11,7 @@ import { computeDistanceFromSources, indexOf, neighbours8 } from './grid.js'
 import { int, rngFor } from '../rng.js'
 import { COAST_FLAG } from './coast.js'
 import { RESOURCE } from './resources.js'
+import { floodFillLandmasses } from './island.js'
 
 /** @type {readonly string[]} Placement order: capital first, then descending by size. */
 const KIND_ORDER = Object.freeze(['capital', 'city', 'town', 'village', 'hamlet'])
@@ -28,10 +29,17 @@ function clamp01(value) {
 }
 
 /**
- * Builds the buildable-land mask: land cells that are not `rock`.
- * DESIGN 5.2 step 10's own invariant ("everything that is not rock is
- * farmable, buildable or exploitable") is exactly the condition used
- * here.
+ * Builds the buildable-land mask: land cells that are not `rock` and
+ * belong to the main landmass. DESIGN 5.2 step 10's own invariant
+ * ("everything that is not rock is farmable, buildable or
+ * exploitable") covers the rock exclusion; the landmass restriction is
+ * this module's own addition, since island.js keeps up to 3 small
+ * islets alongside the main landmass (step 4), and those are
+ * genuinely cut off from it by sea — a settlement placed there could
+ * never be reached from the capital by road, which DESIGN 5.3
+ * requires unconditionally. Excluding them here, before any scoring
+ * happens, is cheaper and more certain than trying to patch road
+ * connectivity around an island with no land route to it.
  *
  * @param {object} grid The world grid.
  * @param {{landuseEnum: string[]}} terrainRules The validated terrain.json rules.
@@ -39,9 +47,17 @@ function clamp01(value) {
  */
 function computeBuildableMask(grid, terrainRules) {
   const rockIndex = terrainRules.landuseEnum.indexOf('rock')
+
+  const components = floodFillLandmasses(grid)
+  components.sort((a, b) => b.length - a.length)
+  const mainLandmass = new Uint8Array(grid.landuse.length)
+  if (components.length > 0) {
+    for (const i of components[0]) mainLandmass[i] = 1
+  }
+
   const mask = new Uint8Array(grid.landuse.length)
   for (let i = 0; i < grid.landuse.length; i++) {
-    mask[i] = grid.water[i] === 0 && grid.landuse[i] !== rockIndex ? 1 : 0
+    mask[i] = grid.water[i] === 0 && grid.landuse[i] !== rockIndex && mainLandmass[i] ? 1 : 0
   }
   return mask
 }

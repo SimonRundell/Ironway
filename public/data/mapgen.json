@@ -92,7 +92,15 @@
     "roadNearestNeighboursMax": 3,
     "railSkeletonTopCitiesMin": 3,
     "railSkeletonTopCitiesMax": 5,
-    "maxRailShareOfRoadMiles": 0.15
+    "maxRailShareOfRoadMiles": 0.15,
+    "roadSlopeWeight": 2,
+    "roadRiverCrossingPenaltyMiles": 3,
+    "roadMarshPenaltyMiles": 5,
+    "upwardBonusFactor": 1.5,
+    "cycleEdgeMaxPerSettlement": 1,
+    "seaNearestNeighboursMin": 2,
+    "seaNearestNeighboursMax": 3,
+    "pathSimplifyToleranceMiles": 1.5
   },
   "validation": {
     "landFractionMin": 0.35,
