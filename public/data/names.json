@@ -30,6 +30,9 @@
     "Lor", "Mor", "Nor", "Os", "Pel", "Rhen", "Sel", "Tor", "Vel", "Wyn"
   ],
   "islandNameSuffixes": ["mere", "shire", "land", "wick", "holm", "stead"],
+  "coastalEndingChance": 0.75,
+  "prefixChance": 0.15,
+  "maxAttempts": 100,
   "blocklist": [
     "London", "Paris", "York", "Bristol", "Plymouth", "Dover", "Cardiff", "Edinburgh",
     "Glasgow", "Liverpool", "Manchester", "Birmingham", "Dublin", "Belfast", "Leeds",

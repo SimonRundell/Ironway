@@ -501,7 +501,8 @@ function validateNames(data) {
   for (const field of [
     'settlementStems', 'settlementEndings', 'coastalEndings', 'prefixes',
     'riverStems', 'riverSuffixes', 'bayStems', 'baySuffixes',
-    'rangeStems', 'rangeSuffixes', 'islandNameStems', 'islandNameSuffixes', 'blocklist',
+    'rangeStems', 'rangeSuffixes', 'islandNameStems', 'islandNameSuffixes',
+    'coastalEndingChance', 'prefixChance', 'maxAttempts', 'blocklist',
   ]) {
     requireField(data, field, file, '(root)')
   }
