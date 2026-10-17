@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Debug tool for T1.03-T1.10: generates an island for one or more
+ * Debug tool for T1.03-T1.11: generates an island for one or more
  * seeds and writes ASCII previews of each into scripts/out/, for a
  * human to eyeball the island mask, mountains, coastline, lakes,
- * rivers, land use, resource deposits, settlements and the link
- * network.
+ * rivers, land use, resource deposits, settlements, the link network
+ * and industries.
  *
  * Usage:
  *   node scripts/mapgen-preview.mjs [seed ...]
@@ -25,6 +25,7 @@ import { generateSoil } from '../src/sim/mapgen/soil.js'
 import { generateResources, RESOURCE } from '../src/sim/mapgen/resources.js'
 import { generateSettlements } from '../src/sim/mapgen/settlements.js'
 import { generateLinks } from '../src/sim/mapgen/links.js'
+import { generateIndustries } from '../src/sim/mapgen/industries.js'
 import { createNameGenerator } from '../src/sim/names.js'
 
 const DEFAULT_SEEDS = ['ironway-001', 'ironway-002', 'ironway-003', 'ironway-004', 'ironway-005']
@@ -177,18 +178,24 @@ function rasterizeLine(x0, y0, x1, y1) {
   return points
 }
 
+/** @type {Record<string, string>} One ASCII character per industry tier, drawn over link lines but under settlements. */
+const INDUSTRY_CHARS = { primary: '*', secondary: '+', tertiary: '%' }
+
 /**
  * Renders the link network over a plain sea/land background: roads
- * (`o`), rail (`=`) and sea lanes (`-`), with settlement markers drawn
- * on top of everything. Virtual world links (no real path) are
+ * (`o`), rail (`=`) and sea lanes (`-`), with industries (`*` primary,
+ * `+` secondary) and settlement markers drawn on top, settlements
+ * taking final priority. Virtual world links (no real path) are
  * skipped.
  *
  * @param {object} grid A generated world grid.
  * @param {import('../src/sim/state.js').Settlement[]} settlements Placed settlements.
- * @param {import('../src/sim/state.js').Link[]} links Generated links.
+ * @param {import('../src/sim/state.js').Link[]} links Generated links (including tramways).
+ * @param {import('../src/sim/state.js').Industry[]} industries Placed industries.
+ * @param {Map<string, string>} industryTierById Industry type id to tier, for the character choice.
  * @returns {string} The rendered map, one line per row.
  */
-function renderLinks(grid, settlements, links) {
+function renderLinks(grid, settlements, links, industries, industryTierById) {
   const drawn = new Map()
 
   for (const link of links) {
@@ -209,6 +216,13 @@ function renderLinks(grid, settlements, links) {
         if (!existing || priority >= existing.priority) drawn.set(key, { ch, priority })
       }
     }
+  }
+
+  for (const ind of industries) {
+    const x = Math.round(ind.x / grid.cellMiles)
+    const y = Math.round(ind.y / grid.cellMiles)
+    const ch = INDUSTRY_CHARS[industryTierById.get(ind.typeId)] ?? '?'
+    drawn.set(indexOf(grid, x, y), { ch, priority: Infinity - 1 })
   }
 
   for (const s of settlements) {
@@ -254,6 +268,7 @@ async function main() {
     const nameGen = createNameGenerator(seed, rules.names)
     const settlements = generateSettlements(grid, seed, rules.mapgen, rules.settlements, rules.terrain, rules.classes, nameGen)
     const links = generateLinks(grid, seed, rules.mapgen, rules.terrain, settlements)
+    const { industries, tramwayLinks } = generateIndustries(grid, seed, rules.mapgen, rules.industries, rules.terrain, settlements, deposits, 1830, links)
     const elapsedMs = Date.now() - start
 
     let land = 0
@@ -316,18 +331,31 @@ async function main() {
       `ports ${ports}, total population ${totalPop.toLocaleString()}`,
     )
 
-    const linksAscii = renderLinks(grid, settlements, links)
+    const industryTierById = new Map(rules.industries.map((d) => [d.id, d.tier]))
+    const allLinksWithTramways = [...links, ...tramwayLinks]
+
+    const linksAscii = renderLinks(grid, settlements, allLinksWithTramways, industries, industryTierById)
     const linksOutPath = `scripts/out/${seed}-links.txt`
     writeFileSync(linksOutPath, linksAscii)
 
     const roadMiles = links.filter((l) => l.mode === 'road').reduce((sum, l) => sum + l.lengthMi, 0)
-    const railMiles = links.filter((l) => l.mode === 'rail').reduce((sum, l) => sum + l.lengthMi, 0)
+    const railMiles = links.filter((l) => l.mode === 'rail').reduce((sum, l) => sum + l.lengthMi, 0) + tramwayLinks.reduce((sum, l) => sum + l.lengthMi, 0)
     const seaMiles = links.filter((l) => l.mode === 'sea' && l.bType === 's').reduce((sum, l) => sum + l.lengthMi, 0)
     console.log(
       `  links: road ${links.filter((l) => l.mode === 'road').length} (${roadMiles.toFixed(0)}mi), ` +
-      `rail ${links.filter((l) => l.mode === 'rail').length} (${railMiles.toFixed(0)}mi, ${(100 * railMiles / roadMiles).toFixed(1)}% of road), ` +
+      `rail ${links.filter((l) => l.mode === 'rail').length + tramwayLinks.length} (${railMiles.toFixed(0)}mi, ${(100 * railMiles / roadMiles).toFixed(1)}% of road, incl. ${tramwayLinks.length} tramways), ` +
       `sea ${links.filter((l) => l.mode === 'sea' && l.bType === 's').length} (${seaMiles.toFixed(0)}mi), ` +
       `world ${links.filter((l) => l.bType === 'w').length} -> ${linksOutPath}`,
+    )
+
+    const byTier = {}
+    for (const ind of industries) {
+      const tier = industryTierById.get(ind.typeId)
+      byTier[tier] = (byTier[tier] ?? 0) + 1
+    }
+    console.log(
+      `  industries: ${industries.length} total (primary ${byTier.primary ?? 0}, secondary ${byTier.secondary ?? 0}), ` +
+      `tramways ${tramwayLinks.length}`,
     )
   }
 }

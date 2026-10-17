@@ -21,7 +21,7 @@ import { indexOf, neighbours8 } from './grid.js'
 import { int, rngFor } from '../rng.js'
 
 /** @type {Record<string, number>} Settlement kind to rank, smallest number is biggest. */
-const KIND_RANK = Object.freeze({ capital: 0, city: 1, town: 2, village: 3, hamlet: 4 })
+export const KIND_RANK = Object.freeze({ capital: 0, city: 1, town: 2, village: 3, hamlet: 4 })
 
 /**
  * A small binary min-heap keyed by a numeric priority, used by
@@ -529,6 +529,39 @@ function roadTerrainCost(grid, mapgenRules, linksParams, rockIndex, marshIndex) 
       if (grid.landuse[to] === marshIndex) cost += linksParams.roadMarshPenaltyMiles
       return cost
     },
+  }
+}
+
+/**
+ * Routes a single terrain link (road-style terrain rules: slope, river
+ * -crossing and marsh penalties, `rock` and water forbidden) between
+ * two arbitrary cells and returns its length, gradient and simplified
+ * path, ready to drop into a `Link` record. Used directly by
+ * sim/mapgen/industries.js to build colliery tramways from a mine to
+ * its nearest town or port, reusing the same A* machinery as roads
+ * and the rail skeleton rather than duplicating it.
+ *
+ * @param {object} grid The world grid.
+ * @param {object} mapgenRules The validated mapgen.json rules.
+ * @param {{landuseEnum: string[]}} terrainRules The validated terrain.json rules.
+ * @param {number} fromIndex Starting cell index.
+ * @param {number} toIndex Goal cell index.
+ * @returns {{lengthMi: number, gradient: number, path: number[][]}|null} Null if unreachable.
+ */
+export function routeTerrainLink(grid, mapgenRules, terrainRules, fromIndex, toIndex) {
+  const linksParams = mapgenRules.links
+  const rockIndex = terrainRules.landuseEnum.indexOf('rock')
+  const marshIndex = terrainRules.landuseEnum.indexOf('marsh')
+  const terrainCost = roadTerrainCost(grid, mapgenRules, linksParams, rockIndex, marshIndex)
+
+  const result = findPath(grid, fromIndex, toIndex, terrainCost.isPassable, terrainCost.stepCost)
+  if (!result) return null
+
+  const points = cellsToMilePoints(grid, result.cells)
+  return {
+    lengthMi: pathLengthMiles(points),
+    gradient: pathGradient(grid, mapgenRules.slope.quantizationScale, result.cells),
+    path: simplifyPath(points, linksParams.pathSimplifyToleranceMiles),
   }
 }
 

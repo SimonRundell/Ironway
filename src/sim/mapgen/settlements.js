@@ -45,7 +45,7 @@ function clamp01(value) {
  * @param {{landuseEnum: string[]}} terrainRules The validated terrain.json rules.
  * @returns {Uint8Array} 1 where a settlement may be placed, 0 otherwise.
  */
-function computeBuildableMask(grid, terrainRules) {
+export function computeBuildableMask(grid, terrainRules) {
   const rockIndex = terrainRules.landuseEnum.indexOf('rock')
 
   const components = floodFillLandmasses(grid)

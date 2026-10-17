@@ -102,6 +102,18 @@
     "seaNearestNeighboursMax": 3,
     "pathSimplifyToleranceMiles": 1.5
   },
+  "industries": {
+    "countMin": 2,
+    "countMax": 5,
+    "homeSettlementRadiusMiles": 10,
+    "riverSitingRadiusCells": 1,
+    "riverMinWidthClass": 2,
+    "harbourSitingRadiusMiles": 6,
+    "townSitingRadiusMiles": 4,
+    "nearCargoRadiusMiles": 25,
+    "nearCargoBonus": 0.3,
+    "jitterStrength": 0.1
+  },
   "validation": {
     "landFractionMin": 0.35,
     "landFractionMax": 0.50,
