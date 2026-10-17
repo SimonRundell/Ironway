@@ -406,9 +406,10 @@ function assignHinterlands(grid, placed) {
  * @param {{landuseEnum: string[]}} terrainRules The validated terrain.json rules.
  * @param {object[]} classesRules The validated classes.json rules (the `classes` array).
  * @param {ReturnType<import('../names.js').createNameGenerator>} nameGen A name generator for this seed.
+ * @param {number} [populationScale] difficulty.json's `startingPopulationScale` (default 1, i.e. normal difficulty).
  * @returns {import('../state.js').Settlement[]}
  */
-export function generateSettlements(grid, seed, mapgenRules, settlementsRules, terrainRules, classesRules, nameGen) {
+export function generateSettlements(grid, seed, mapgenRules, settlementsRules, terrainRules, classesRules, nameGen, populationScale = 1) {
   const p = settlementsRules.placement
   const kindsById = {}
   settlementsRules.kinds.forEach((kind) => { kindsById[kind.id] = kind })
@@ -449,13 +450,15 @@ export function generateSettlements(grid, seed, mapgenRules, settlementsRules, t
     const count = list.length
 
     list.forEach((s, i) => {
+      let population
       if (count === 1) {
-        s.population = int(rngFor(seed, 'settlements', s.kindId, 'population', i), min, max)
+        population = int(rngFor(seed, 'settlements', s.kindId, 'population', i), min, max)
       } else {
         const rankT = (count - i) / count
         const popFraction = p.popFractionFloor + (1 - p.popFractionFloor) * rankT
-        s.population = Math.round(min + (max - min) * popFraction)
+        population = min + (max - min) * popFraction
       }
+      s.population = Math.round(population * populationScale)
     })
   }
 

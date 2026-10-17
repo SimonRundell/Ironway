@@ -147,7 +147,8 @@
 
 /**
  * @typedef {object} WorldMeta
- * @property {string} seed
+ * @property {string} seed The save's own seed, as entered or chosen at creation — never the per-attempt derived seed actually fed to the generator.
+ * @property {number} attempt Which validation attempt succeeded (0 on the first try); maps to `saves.attempt`. Together with `seed`, lets a world be regenerated exactly (DESIGN 5.2 step 14).
  * @property {number} generatorVersion
  * @property {number} startYear
  * @property {string} difficulty
