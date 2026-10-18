@@ -118,6 +118,7 @@
     },
     "momentumBonus": 0.05,
     "neutralPlayerActivity": 0.5,
+    "outputGrowthScale": 2,
     "upThresholdByLevel": [0.45, 0.60, 0.75, 0.90, null],
     "downThresholdByLevel": [null, 0.35, 0.45, 0.55, 0.70]
   }
