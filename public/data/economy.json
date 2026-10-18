@@ -48,7 +48,10 @@
     "housingAbandonmentThreshold": 0.70,
     "mobility": { "upper": 0.002, "middle": 0.008, "working": 0.02 },
     "migrationOutflowCapPerMonth": 0.03,
-    "classDriftTowardJobSharePerYear": 0.10
+    "migrationDistanceScaleMiles": 20,
+    "classDriftTowardJobSharePerYear": 0.10,
+    "rentierUpperFloor": 0.03,
+    "materialsPerHomeUnit": 0.1
   },
   "attractivenessWeights": {
     "jobAvailability": 0.35,
