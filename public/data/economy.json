@@ -53,6 +53,14 @@
     "rentierUpperFloor": 0.03,
     "materialsPerHomeUnit": 0.1
   },
+  "jobs": {
+    "farmLabourShareOfWorking": 0.35,
+    "serviceJobsPerThousandPopPerWageUnit": 10,
+    "constructionJobsPerHomeUnit": 0.05
+  },
+  "wages": {
+    "tightnessSensitivity": 0.2
+  },
   "attractivenessWeights": {
     "jobAvailability": 0.35,
     "realWageIndex": 0.20,
