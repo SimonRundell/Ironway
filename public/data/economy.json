@@ -9,6 +9,8 @@
   "seasonal": {
     "grainHarvestPeakMonths": [7, 8, 9],
     "woolSpringPeakMonths": [2, 3, 4],
+    "seasonalPeakFactor": 1.3,
+    "seasonalOffPeakFactor": 0.9,
     "coalDemandFactorByMonth": [1.6, 1.5, 1.3, 1.0, 0.8, 0.6, 0.6, 0.6, 0.8, 1.0, 1.3, 1.5]
   },
   "demandPerThousandPerMonth": {
