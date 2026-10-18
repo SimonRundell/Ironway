@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './state/authContext.js'
 import LoginPage from './ui/LoginPage.jsx'
 import RegisterPage from './ui/RegisterPage.jsx'
+import SavesPage from './ui/SavesPage.jsx'
 
 /**
  * Root component and route table.
@@ -29,31 +30,6 @@ function RequireAuth({ children }) {
 }
 
 /**
- * Placeholder landing page for a signed-in player. Replaced by the
- * inspector UI in T1.26.
- *
- * @returns {JSX.Element}
- */
-function HomePage() {
-  const { user, logout } = useAuth()
-
-  return (
-    <main className="page">
-      <div className="card">
-        <h1 className="brand">
-          <img className="brand-logo" src="/favicon.png" alt="Ironway" />
-        </h1>
-        <p>An economic and logistics sandbox on a generated island.</p>
-        <p className="muted">Phase 0: foundations. Signed in as {user.username}.</p>
-        <button type="button" onClick={logout}>
-          Log out
-        </button>
-      </div>
-    </main>
-  )
-}
-
-/**
  * Root component.
  * @returns {JSX.Element} The route table.
  */
@@ -66,7 +42,7 @@ export default function App() {
         path="/"
         element={
           <RequireAuth>
-            <HomePage />
+            <SavesPage />
           </RequireAuth>
         }
       />

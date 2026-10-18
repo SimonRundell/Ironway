@@ -48,6 +48,9 @@ code, pre { font-family: var(--font-code); }
   max-width: 44rem;
   margin: 0 auto;
   padding: var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .card {
@@ -55,6 +58,38 @@ code, pre { font-family: var(--font-code); }
   border: 1px solid var(--colour-border);
   border-radius: var(--radius);
   padding: var(--space-3);
+}
+
+.card + .card { margin-top: 0; }
+
+.banner-warning {
+  border-color: var(--colour-accent);
+  background: color-mix(in srgb, var(--colour-accent) 15%, var(--colour-surface));
+}
+
+.saves-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.saves-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius);
+}
+
+.saves-list li span:last-child {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
 }
 
 .muted { color: var(--colour-ink-soft); }
@@ -85,7 +120,8 @@ form {
   font-weight: bold;
 }
 
-.field input {
+.field input,
+.field select {
   font-family: var(--font-text);
   font-size: 1rem;
   font-weight: normal;
