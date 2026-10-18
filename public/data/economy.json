@@ -78,6 +78,10 @@
     "smoothingOldWeight": 0.7,
     "smoothingNewWeight": 0.3
   },
+  "ports": {
+    "tierGrowthThroughputThreshold": 0.9,
+    "tierGrowthSustainedMonths": 12
+  },
   "startingEconomyLevel": 2,
   "levels": [
     { "level": 0, "name": "Depression", "production": 0.80, "demand": 0.80, "revenue": 0.85, "buildCost": 0.80, "interestRate": 0.11, "taxRate": 0.10 },
