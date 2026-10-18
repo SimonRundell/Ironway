@@ -3,6 +3,9 @@
   "apiBaseProd": "/api",
   "autosaveEveryGameMonths": 3,
   "defaultSpeed": 1,
+  "msPerDayAt1x": 500,
+  "maxDaysPerFrame": 8,
+  "pauseOnHidden": true,
   "ui": {
     "showDebugPanel": true
   }
