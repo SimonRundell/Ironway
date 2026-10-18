@@ -82,6 +82,23 @@
     "tierGrowthThroughputThreshold": 0.9,
     "tierGrowthSustainedMonths": 12
   },
+  "industryLifecycle": {
+    "openThreshold": 1.5,
+    "openRequiredMonths": 6,
+    "openBaseProbability": 0.3,
+    "openInputSearchRadiusMiles": 40,
+    "expansionRequiredMonths": 12,
+    "expansionUtilisationThreshold": 0.9,
+    "expansionCapacityGain": 0.2,
+    "maxCapacityMultiplier": 2.0,
+    "unmetPriceSignalThreshold": 1.0,
+    "contractionRequiredMonths": 12,
+    "contractionUtilisationThreshold": 0.3,
+    "contractionCapacityFactor": 0.5,
+    "closureRequiredMonths": 24,
+    "closureUtilisationThreshold": 0.15,
+    "depositLifetimeMonthsAtFullOutput": 600
+  },
   "startingEconomyLevel": 2,
   "levels": [
     { "level": 0, "name": "Depression", "production": 0.80, "demand": 0.80, "revenue": 0.85, "buildCost": 0.80, "interestRate": 0.11, "taxRate": 0.10 },
