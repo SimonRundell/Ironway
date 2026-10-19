@@ -56,7 +56,8 @@
   "jobs": {
     "farmLabourShareOfWorking": 0.35,
     "serviceJobsPerThousandPopPerWageUnit": 10,
-    "constructionJobsPerHomeUnit": 0.05
+    "constructionJobsPerHomeUnit": 0.05,
+    "serviceIndexPerCapitaScale": 0.05
   },
   "wages": {
     "tightnessSensitivity": 0.2

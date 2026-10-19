@@ -192,7 +192,7 @@ Goal: a persistent, deterministic island economy that runs with no player action
 
 ### T1.27 Docs, deploy pack, Phase 1 gate (S)
 - Depends on: T1.26.
-- Do: Update `README.md` (setup on Laragon, build, deploy to Hostinger or Dreamhost, licence). Write `scripts/deploy-pack.ps1`. Add `docs/ECONOMY.md` explaining the model for students (plain prose, diagrams as Mermaid). Tag `phase-1`.
+- Do: Update `README.md` (setup on Laragon, build, deploy to Dreamhost, licence). Write `scripts/deploy-pack.ps1`. Add `docs/ECONOMY.md` explaining the model for players (plain prose, diagrams as Mermaid). Tag `phase-1`.
 - Done when: **Phase 1 gate demo:** fresh clone, `migrate`, create account, create island, run 20 game years with no player action. Population and employment move believably, at least one industry opens and one closes, the economy level changes at least once, nothing crashes, deploy pack produces a folder that works on a clean Apache with the `.htaccess` rules.
 
 ---
