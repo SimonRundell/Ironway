@@ -274,7 +274,12 @@ export function applyBaselineFlows(nodeStock, flowResults) {
     if (!next.has(toKey)) next.set(toKey, {})
     const fromStock = next.get(fromKey)
     const toStock = next.get(toKey)
-    fromStock[cargo] = (fromStock[cargo] || 0) - moved
+    // `scaleForNodeOversubscription()` guarantees a node's total desired outflow never exceeds
+    // its available stock in principle, but floating-point rounding across many scaled
+    // candidates can occasionally let `moved` overshoot `available` by a tiny epsilon — clamped
+    // here the same way `production.js`'s `applyIndustryProduction()` already clamps input
+    // consumption, so stock never goes negative (DESIGN 11's own property-test requirement).
+    fromStock[cargo] = Math.max(0, (fromStock[cargo] || 0) - moved)
     toStock[cargo] = (toStock[cargo] || 0) + received
   }
 

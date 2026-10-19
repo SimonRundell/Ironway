@@ -261,7 +261,11 @@ export function toRows(gameState) {
     x: s.x,
     y: s.y,
     port_tier: s.portTier,
-    housing: s.housing,
+    // `housing` is an INT column (api/sql/001_schema.sql), but computeHousingConstruction()
+    // builds a fractional number of homes most months — rounded only at this serialisation
+    // boundary, never inside the simulation itself, so the entity's own running total stays
+    // exact across many ticks.
+    housing: Math.round(s.housing),
     region_cells: s.regionCells,
     stock: s.stock,
   }))
@@ -272,8 +276,10 @@ export function toRows(gameState) {
       settlementPop.push({
         settlement_id: s.id,
         class: Number(classId),
-        pop: p.pop,
-        employed: p.employed,
+        // `pop`/`employed` are INT columns, but births/deaths/migration/labour allocation are
+        // all continuous float arithmetic — same rounding-at-the-boundary reasoning as `housing`.
+        pop: Math.round(p.pop),
+        employed: Math.round(p.employed),
         confidence: p.confidence,
       })
     }
@@ -327,10 +333,12 @@ export function toRows(gameState) {
 
   const historyMonthly = gameState.historyMonthly.map((h) => ({
     month_index: h.monthIndex,
-    pop_total: h.popTotal,
-    pop_u: h.popU,
-    pop_m: h.popM,
-    pop_w: h.popW,
+    // `pop_total`/`pop_u`/`pop_m`/`pop_w` are INT columns too — same reasoning as `housing` above:
+    // these are sums of the same continuous per-class `pop` floats, rounded only here.
+    pop_total: Math.round(h.popTotal),
+    pop_u: Math.round(h.popU),
+    pop_m: Math.round(h.popM),
+    pop_w: Math.round(h.popW),
     employment: h.employment,
     confidence: h.confidence,
     trade_value: h.tradeValue,

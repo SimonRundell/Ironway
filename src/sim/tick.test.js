@@ -50,6 +50,22 @@ function findNonFinite(value, path = '$') {
   return []
 }
 
+/** @param {import('./state.js').GameState} gameState @returns {string[]} Dotted paths to every negative stock value found (DESIGN 11's own "no negative stock" property-test requirement). */
+function findNegativeStock(gameState) {
+  const offenders = []
+  for (const settlement of gameState.settlements) {
+    for (const [cargo, qty] of Object.entries(settlement.stock)) {
+      if (qty < 0) offenders.push(`settlement:${settlement.id}.stock.${cargo}`)
+    }
+  }
+  for (const industry of gameState.industries) {
+    for (const [cargo, qty] of Object.entries(industry.stock)) {
+      if (qty < 0) offenders.push(`industry:${industry.id}.stock.${cargo}`)
+    }
+  }
+  return offenders
+}
+
 describe('T1.24 fixture: a 10-year run on a generated world', () => {
   it('completes without producing any NaN or Infinity', () => {
     const { world, gameState } = freshGame(SEED)
@@ -57,6 +73,13 @@ describe('T1.24 fixture: a 10-year run on a generated world', () => {
 
     const offenders = findNonFinite(gameState)
     expect(offenders).toEqual([])
+  }, 30000)
+
+  it('never produces negative stock', () => {
+    const { world, gameState } = freshGame(SEED)
+    runYears({ world, gameState, rules, seed: SEED, gameDay: 0 }, YEARS)
+
+    expect(findNegativeStock(gameState)).toEqual([])
   }, 30000)
 
   it('produces one history row for every month', () => {

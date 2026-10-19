@@ -3,6 +3,7 @@ import { useAuth } from './state/authContext.js'
 import LoginPage from './ui/LoginPage.jsx'
 import RegisterPage from './ui/RegisterPage.jsx'
 import SavesPage from './ui/SavesPage.jsx'
+import InspectorPage from './ui/InspectorPage.jsx'
 
 /**
  * Root component and route table.
@@ -43,6 +44,14 @@ export default function App() {
         element={
           <RequireAuth>
             <SavesPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/island/:saveId"
+        element={
+          <RequireAuth>
+            <InspectorPage />
           </RequireAuth>
         }
       />

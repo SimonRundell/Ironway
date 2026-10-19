@@ -11,11 +11,11 @@
 require_once __DIR__ . '/json.php';
 require_once __DIR__ . '/rules.php';
 
-/** @var int Row-count sanity ceilings, well above any real generated world (max ~331 settlements, ~618 links), to block a wildly oversized payload before it reaches the database. */
-const MAX_SETTLEMENTS_PER_SAVE = 500;
-const MAX_SETTLEMENT_POP_ROWS_PER_SAVE = 1500;
-const MAX_INDUSTRIES_PER_SAVE = 300;
-const MAX_LINKS_PER_SAVE = 1000;
+/** @var int Row-count sanity ceilings, well above any real generated world (T1.25's higher industry density: max ~321 settlements, ~2,372 industries, ~604 links across the golden seeds), to block a wildly oversized payload before it reaches the database. */
+const MAX_SETTLEMENTS_PER_SAVE = 600;
+const MAX_SETTLEMENT_POP_ROWS_PER_SAVE = 1800;
+const MAX_INDUSTRIES_PER_SAVE = 4000;
+const MAX_LINKS_PER_SAVE = 1200;
 const MAX_HISTORY_ROWS_PER_CHECKPOINT = 50;
 const MAX_EVENTS_PER_CHECKPOINT = 300;
 
