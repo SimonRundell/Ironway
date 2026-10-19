@@ -201,10 +201,15 @@ Goal: a persistent, deterministic island economy that runs with no player action
 
 Goal: a high-quality, scrollable and zoomable canvas that makes the economy visible.
 
+### T2.00 Projection spike (S)
+- Depends on: T1.12 (needs `generateWorld` and the golden seeds). May run before the Phase 1 gate. See DESIGN 9.2.1.
+- Do: a throwaway page in `scripts/spike/`, outside `src` and not part of the React app. Generate `ironway-001`, paint land use colours to an offscreen canvas, and draw the island two ways: top-down, and 2:1 isometric using a plain affine matrix. Overlay link polylines, settlement markers and 6 to 10 small sprites (industries, cottages, a train) from CC0 or CC BY packs such as Kenney. Capture four camera positions across the zoom bands and record frame time during a scripted pan.
+- Done when: screenshots are committed to `docs/spike/`. A `DECISIONS.md` entry names the chosen projection and the reason. If iso is chosen, DESIGN 9.2.1 and the Phase 2 tasks it touches (T2.01, T2.03, T2.06, T2.07, T2.09, T2.10) are amended. If pack sprites are adopted, DESIGN 0.2 item 7 and `CLAUDE.md` are amended and every pack is listed in `CREDITS.md` with its licence. Nothing from the spike is imported by `src`.
+
 ### T2.01 Camera and input (M)
-- Depends on: Phase 1 gate. See DESIGN 9.2.
-- Do: `camera.js` (world to screen, exponential wheel zoom to cursor with easing, drag with inertia, clamps, keyboard, fit-to-island), pure functions with unit tests. Render loop skeleton with dirty flags and `devicePixelRatio` handling.
-- Done when: unit tests for transforms and zoom anchoring (point under cursor stays fixed). Resizing keeps the view centre. The loop idles at near zero CPU when nothing changes.
+- Depends on: Phase 1 gate and T2.00. See DESIGN 9.2 and 9.2.1.
+- Do: `projection.js` first (top-down, exporting `worldToScreen`, `screenToWorld`, `visibleWorldPolygon`, `tileTransform`, `depthKey` as in DESIGN 9.2.1). Then `camera.js` (exponential wheel zoom to cursor with easing, drag with inertia, clamps, keyboard, fit-to-island), built only on top of the projection and never doing its own screen maths. Pure functions with unit tests. Render loop skeleton with dirty flags and `devicePixelRatio` handling.
+- Done when: unit tests for transforms and zoom anchoring (point under cursor stays fixed). The same round-trip and anchoring tests also pass against a 2:1 isometric projection defined in the test file, which proves the camera does not assume top-down. Resizing keeps the view centre. The loop idles at near zero CPU when nothing changes.
 
 ### T2.02 Canvas stack and React integration (S)
 - Depends on: T2.01.
@@ -390,7 +395,7 @@ T0.04 + T1.08 -> T1.13 ;  T1.12 + T1.13 -> T1.14
 T1.11 + T1.15 -> T1.16 -> T1.17 -> T1.18 -> T1.19 -> T1.20
 T1.18 -> T1.21 ;  T1.20 + T1.21 -> T1.22, T1.23 -> T1.24 -> T1.25
 T1.14 + T1.24 -> T1.26 -> T1.27   (Phase 1 gate)
-Phase 2: T2.01 -> T2.02 -> (T2.03 -> T2.04 -> T2.05) and (T2.06) -> T2.07 -> T2.08 -> T2.09
+Phase 2: T2.00 -> T2.01 -> T2.02 -> (T2.03 -> T2.04 -> T2.05) and (T2.06) -> T2.07 -> T2.08 -> T2.09
          T2.11 parallel; T2.10, T2.12 after T2.07; T2.14, T2.15, T2.16 last   (Phase 2 gate)
 Phase 3: T3.01 -> T3.02 -> T3.03 -> (T3.04, T3.05) -> T3.06 -> T3.07 -> (T3.08, T3.09, T3.10)
          T3.11, T3.12 -> (T3.13, T3.14) -> T3.15, T3.16 -> T3.17   (Phase 3 gate) -> T3.18

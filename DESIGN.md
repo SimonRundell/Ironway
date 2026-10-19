@@ -112,7 +112,7 @@ ironway/
       mapgen/                  island, hydrology, coast, climate, soil, resources, settlements, links, industries, names, validate, pack
       model/                   production, demand, market, flows, population, employment, confidence, economyLevel, lifecycle, tick, state
       rules.js                 loads and validates rules JSON
-    render/                    Phase 2 canvas code and workers
+    render/                    Phase 2 canvas code and workers (projection.js owns all world to screen maths)
     ui/                        React components and pages
     state/                     React-side stores
   scripts/                     balance.mjs, smoke.ps1, deploy-pack.ps1
@@ -675,6 +675,19 @@ Four semantic bands (echoing the reference games):
 | Area | 4 to 12 | Towns, roads and rail, regional industries, smoke. |
 | Local | 12 to 36 | Villages, individual industries, carts and ships, hinterland fields. |
 | Detail | 36 to 96 | Individual buildings, tree and crop patterns, street layouts. |
+
+### 9.2.1 Projection
+
+Every conversion between world miles and screen pixels goes through one module, `src/render/projection.js`. No other renderer code does its own screen maths. It exports:
+
+- `worldToScreen` and `screenToWorld`, the pair the camera and pointer handling use.
+- `visibleWorldPolygon(viewport)`, the world-space footprint of the viewport. It is a rectangle in top-down and a rotated quad in any other projection. Tile selection, culling, label placement and hit testing all call it.
+- `tileTransform(tile)`, the matrix used to draw a cached tile.
+- `depthKey(x, y, z)`, the draw order for tall objects. It is constant in top-down.
+
+The shipped projection is top-down. A 2:1 isometric projection is a candidate replacement, to be settled by the spike in T2.00. Either way, terrain tiles are rendered in world-aligned space in the workers (9.4) and are only placed on screen through `tileTransform`, so the tile pipeline does not change. The hillshade light direction is read from `palette.json` instead of being fixed in the shader, so it can follow the view.
+
+Sprite packs are not in use. All art is procedural (0.2, item 7). If T2.00 recommends bringing in CC0 or CC BY sprites for small objects, that item and `CLAUDE.md` must be amended first.
 
 ### 9.3 Layers and canvases
 
