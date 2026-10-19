@@ -160,14 +160,14 @@
     },
     {
       "id": "goods_works", "name": "Goods works", "tier": "secondary",
-      "siteRules": ["town:city"],
+      "siteRules": ["town:town"],
       "inputs": [
         { "cargo": "iron", "qty": 100 },
         { "cargo": "planks", "qty": 50 }
       ],
       "outputs": { "goods": 120 },
       "jobs": { "working": 60, "middle": 8, "upper": 2 },
-      "eraFrom": 1830, "eraTo": null, "successorId": null, "maxPerNode": 2, "storageMonths": 2
+      "eraFrom": 1830, "eraTo": null, "successorId": null, "maxPerNode": 15, "storageMonths": 2
     },
     {
       "id": "shipyard", "name": "Shipyard", "tier": "secondary",

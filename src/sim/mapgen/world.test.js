@@ -8,11 +8,11 @@ const SEEDS = Array.from({ length: 20 }, (_, i) => `ironway-${String(i + 1).padS
 
 /** @type {Record<string, string>} Golden world checksums, committed so an accidental generator change is caught (DESIGN 11). */
 const GOLDEN_CHECKSUMS = {
-  'ironway-001': '4fa809e611e54ea3',
-  'ironway-002': '10c2820345e09d36',
-  'ironway-003': '2fc60fb22b67785e',
-  'ironway-004': '472bdd878fc904c6',
-  'ironway-005': '40f377092fd6a5c3',
+  'ironway-001': '221c7cea73c40208',
+  'ironway-002': '18e8fd37fd219036',
+  'ironway-003': '54f5d915e02ef6cb',
+  'ironway-004': '0f18219e91a43e9b',
+  'ironway-005': '672ba7498b06e9f7',
 }
 
 let rules

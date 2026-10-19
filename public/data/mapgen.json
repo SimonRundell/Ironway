@@ -64,13 +64,13 @@
     "arablePastoralMargin": 5
   },
   "resources": {
-    "minCoalDeposits": 4,
-    "minIronDeposits": 4,
-    "minStoneDeposits": 6,
-    "minClayDeposits": 6,
+    "minCoalDeposits": 40,
+    "minIronDeposits": 40,
+    "minStoneDeposits": 50,
+    "minClayDeposits": 50,
     "coalIronProximityMiles": 60,
     "minCoalIronPairsWithinProximity": 3,
-    "extraDepositsMax": 4,
+    "extraDepositsMax": 20,
     "blobSizeMin": 3,
     "blobSizeMax": 12,
     "richnessMin": 100,
@@ -103,8 +103,8 @@
     "pathSimplifyToleranceMiles": 1.5
   },
   "industries": {
-    "countMin": 2,
-    "countMax": 5,
+    "countMin": 150,
+    "countMax": 400,
     "homeSettlementRadiusMiles": 10,
     "riverSitingRadiusCells": 1,
     "riverMinWidthClass": 2,

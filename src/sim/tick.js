@@ -3,7 +3,7 @@ import { rngFor } from './rng.js'
 import { agriProductivityMultiplier } from './era.js'
 import { buildSitingContext, evaluateSiteRule } from './mapgen/industries.js'
 import { computeFarmOutput, computeHinterlandSums, computeIndustryUtilisation, applyIndustryProduction } from './economy/production.js'
-import { computeIndustryDemand, computePopulationDemand } from './economy/demand.js'
+import { computeIndustryDemand, computePopulationDemand, computeRelayDemand, mergeDemand } from './economy/demand.js'
 import { decayStock } from './economy/decay.js'
 import { computeCoverage, computeCostOfLiving, computePrice, computePriceMultiplier } from './economy/prices.js'
 import { applyBaselineFlows, computeBaselineFlows, nodeKey } from './economy/flows.js'
@@ -279,20 +279,39 @@ export function runMonth({ world, gameState, rules, seed, gameDay, caches }) {
 
   // --- Step 4: demand (population + industry), merged per node. Ephemeral: not persisted on entities. ---
   const nodeDemand = new Map()
+  const industryDemandById = new Map()
+  const allCargoIds = rules.cargo.map((c) => c.id)
+  for (const industry of gameState.industries) {
+    if (industry.closedDay !== null) continue
+    const def = industriesById.get(industry.typeId)
+    const scaledDef = scaleIndustryDef(def, industry.capacity)
+    const demand = computeIndustryDemand(scaledDef)
+    industryDemandById.set(industry.id, demand)
+    nodeDemand.set(nodeKey('i', industry.id), demand)
+  }
   for (const settlement of gameState.settlements) {
     const classRows = [...classIdByIndex].map(([index, classId]) => ({
       classId,
       pop: settlement.pop[index]?.pop || 0,
       confidence: settlement.pop[index]?.confidence ?? 50,
     }))
-    const demand = computePopulationDemand(classRows, settlement.kind, rules.difficulty.demandMode, rules.economy, levelMultipliers.demand, monthIndex, year)
-    nodeDemand.set(nodeKey('s', settlement.id), demand)
-  }
-  for (const industry of gameState.industries) {
-    if (industry.closedDay !== null) continue
-    const def = industriesById.get(industry.typeId)
-    const scaledDef = scaleIndustryDef(def, industry.capacity)
-    nodeDemand.set(nodeKey('i', industry.id), computeIndustryDemand(scaledDef))
+    const populationDemand = computePopulationDemand(classRows, settlement.kind, rules.difficulty.demandMode, rules.economy, levelMultipliers.demand, monthIndex, year)
+
+    // A settlement's own node also carries its co-located industries' input demand (DESIGN
+    // 7.3's `monthlyDemand[node][cargo]` is the sum of population *and* industry demand at that
+    // node), not just population demand — otherwise no settlement ever shows genuine demand for
+    // a purely-industrial cargo (clay, coal, iron_ore...), no price gradient toward it can ever
+    // form between settlements, and an inland mill's inputs could never arrive no matter how
+    // long the baseline trickle runs. See DECISIONS.md.
+    const localIndustryDemands = (industriesBySettlement.get(settlement.id) || []).map((ind) => industryDemandById.get(ind.id) || {})
+
+    // A tiny, flat "merchant" demand for every cargo (see computeRelayDemand's own doc) so a
+    // multi-hop shipment has a genuine, if small, price gradient to follow through every
+    // intermediate settlement along the way, not just its final destination.
+    const totalPop = [...classIdByIndex.keys()].reduce((sum, index) => sum + (settlement.pop[index]?.pop || 0), 0)
+    const relayDemand = computeRelayDemand(totalPop, allCargoIds, rules.economy.flow.relayDemandPerThousandPerMonth)
+
+    nodeDemand.set(nodeKey('s', settlement.id), mergeDemand(populationDemand, relayDemand, ...localIndustryDemands))
   }
 
   // --- Step 5: perishable decay. ---
@@ -305,6 +324,8 @@ export function runMonth({ world, gameState, rules, seed, gameDay, caches }) {
   // --- Step 6: prices. Ephemeral per-node price maps. ---
   const nodePrices = new Map()
   const cargoById = new Map(rules.cargo.map((c) => [c.id, c]))
+  let priceMultiplierSamples = 0
+  let priceMultiplierAtBound = 0
 
   function computeNodePrices(key, stock, demand) {
     const prices = {}
@@ -315,6 +336,16 @@ export function runMonth({ world, gameState, rules, seed, gameDay, caches }) {
       const coverage = computeCoverage(stock[cargoId] || 0, demand[cargoId] || 0)
       const multiplier = computePriceMultiplier(coverage, cargoDef.elasticity, rules.economy.price)
       prices[cargoId] = computePrice(cargoDef.basePrice, multiplier, levelMultipliers.revenue)
+
+      // Tracked for T1.25's balance harness gate ("no more than 25% of months sitting on a price
+      // bound"). Only counted where a genuine market exists this month (demand > 0) — a cargo
+      // whose era hasn't arrived yet, or that nobody at this node demands at all, sits at pMin by
+      // construction (DESIGN's own "zero-demand nodes sit at the floor"), and counting that as a
+      // failing price sample would be measuring an absent market, not an unhealthy one.
+      if ((demand[cargoId] || 0) > 0) {
+        priceMultiplierSamples++
+        if (multiplier === rules.economy.price.pMin || multiplier === rules.economy.price.pMax) priceMultiplierAtBound++
+      }
     }
     nodePrices.set(key, prices)
     return prices
@@ -335,15 +366,29 @@ export function runMonth({ world, gameState, rules, seed, gameDay, caches }) {
     nodeStock.set(nodeKey('s', settlement.id), settlement.stock)
     nodeProducedCargoes.set(nodeKey('s', settlement.id), new Set(FARM_CARGOES))
   }
+  const localIndustryLinks = []
   for (const industry of gameState.industries) {
     if (industry.closedDay !== null) continue
     const def = industriesById.get(industry.typeId)
     nodeStock.set(nodeKey('i', industry.id), industry.stock)
     nodeProducedCargoes.set(nodeKey('i', industry.id), new Set(Object.keys(def.outputs)))
+
+    // `links.json` never connects an industry node to anything (only settlement-settlement/world
+    // links exist — see DECISIONS.md), so without this the general flow below could never touch
+    // an industry's stock at all. Synthesised fresh every month (never persisted to
+    // `gameState.links`) rather than generated once at world-creation time, so this doesn't
+    // disturb the golden world checksums T1.12 committed. Using the best road tier as its
+    // capacity is a deliberate choice, not a new invented number: DESIGN 5.6 guarantees every
+    // industry sits within 10 miles of its home settlement, which a well-kept local road
+    // comfortably serves, and feeding it through the *same* `computeBaselineFlows()` call (rather
+    // than a bespoke pairwise transfer) is what lets industrial cargo correctly multi-hop
+    // industry -> settlement -> neighbouring settlement -> that settlement's own industry over
+    // successive months, exactly as DESIGN 7.5 describes for every other link.
+    localIndustryLinks.push({ id: `local-industry-${industry.id}`, mode: 'road', tier: 3, aType: 'i', aId: industry.id, bType: 's', bId: industry.homeSettlementId, condition: 1 })
   }
 
   const flowResults = computeBaselineFlows({
-    links: gameState.links,
+    links: [...gameState.links, ...localIndustryLinks],
     nodeStock,
     nodeDemand,
     nodeProducedCargoes,
@@ -655,7 +700,7 @@ export function runMonth({ world, gameState, rules, seed, gameDay, caches }) {
     confidence: confidenceMean,
     tradeValue: monthTradeValue,
     level: gameState.economyState.level,
-    extra: { totalOutput, tradeBalance: monthTradeBalance },
+    extra: { totalOutput, tradeBalance: monthTradeBalance, priceMultiplierSamples, priceMultiplierAtBound },
   })
 
   // --- Step 14: economy level check, March and September only. ---

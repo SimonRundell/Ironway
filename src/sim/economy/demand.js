@@ -161,6 +161,33 @@ export function computeIndustryDemand(industryDef) {
 }
 
 /**
+ * A tiny, flat "merchant" demand for every real cargo at a settlement
+ * (DESIGN 7.5: "multi-hop movement happens over successive months").
+ * Without this, `flows.js`'s gradient rule has no way to relay a
+ * cargo through an intermediate settlement that has no genuine demand
+ * of its own for it: a zero-demand node always prices at `pMin`
+ * (DESIGN's own "producers sit near pMin"), so two zero-demand
+ * neighbours in a row show no gradient between them at all and a
+ * shipment dead-ends after one hop. Representing every settlement as
+ * also running a small speculative trading post — willing to buy a
+ * little of anything cheap and move it on — gives every hop along a
+ * multi-settlement path a genuine, if small, price signal to follow,
+ * without needing the flow algorithm itself to know about any node
+ * beyond its own link's two ends.
+ *
+ * @param {number} totalPop This settlement's total population (all classes).
+ * @param {string[]} cargoIds Every cargo id in `cargo.json`.
+ * @param {number} relayDemandPerThousandPerMonth `economy.json`'s `flow.relayDemandPerThousandPerMonth`.
+ * @returns {Record<string, number>} Tonnes demanded this month, keyed by cargo id.
+ */
+export function computeRelayDemand(totalPop, cargoIds, relayDemandPerThousandPerMonth) {
+  const demand = {}
+  const perCargo = (totalPop / 1000) * relayDemandPerThousandPerMonth
+  for (const cargoId of cargoIds) demand[cargoId] = perCargo
+  return demand
+}
+
+/**
  * Adds one node's per-cargo demand contributions together (DESIGN
  * 7.3's `monthlyDemand[node][cargo]`: the sum of population, industry
  * and — from T1.19 — construction demand).

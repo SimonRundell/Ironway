@@ -32,11 +32,12 @@
     "pMax": 3.0
   },
   "flow": {
-    "baselineShare": 0.15,
+    "baselineShare": 0.95,
     "baselineLossByMode": { "road": 0.12, "rail": 0.06, "sea": 0.04 },
-    "minGradient": 0.1,
+    "minGradient": 0.05,
     "reserveMonths": 0.5,
-    "flowRate": 0.3
+    "flowRate": 0.95,
+    "relayDemandPerThousandPerMonth": 0.3
   },
   "population": {
     "birthRateFoodFactorFloor": 0.5,
@@ -55,7 +56,7 @@
   },
   "jobs": {
     "farmLabourShareOfWorking": 0.35,
-    "serviceJobsPerThousandPopPerWageUnit": 10,
+    "serviceJobsPerThousandPopPerWageUnit": 150,
     "constructionJobsPerHomeUnit": 0.05,
     "serviceIndexPerCapitaScale": 0.05
   },
@@ -93,11 +94,11 @@
     "expansionCapacityGain": 0.2,
     "maxCapacityMultiplier": 2.0,
     "unmetPriceSignalThreshold": 1.0,
-    "contractionRequiredMonths": 12,
-    "contractionUtilisationThreshold": 0.3,
+    "contractionRequiredMonths": 36,
+    "contractionUtilisationThreshold": 0.15,
     "contractionCapacityFactor": 0.5,
-    "closureRequiredMonths": 24,
-    "closureUtilisationThreshold": 0.15,
+    "closureRequiredMonths": 60,
+    "closureUtilisationThreshold": 0.05,
     "depositLifetimeMonthsAtFullOutput": 600
   },
   "startingEconomyLevel": 2,
