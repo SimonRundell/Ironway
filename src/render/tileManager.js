@@ -12,11 +12,39 @@
  */
 
 import { createTileLruCache } from './tileCache.js'
+import { buildCoastlineSdf } from './terrain/coastlineSdf.js'
+import { buildLanduseColourLookup } from './terrain/sampleTerrain.js'
 import { createTileWorkerPool } from './tileWorkerPool.js'
 import { TILE_PIXELS, buildTileLevels, parentTileKey, parseTileKey, tileWorldSize, visibleTiles } from './tiles.js'
 
 /** @type {number} RGBA bytes per pixel, for sizing the cache's byte accounting. */
 const BYTES_PER_PIXEL = 4
+
+/**
+ * Builds the one-time payload every tile worker needs to paint real
+ * terrain (PHASES.md T2.04): the grid layers a pixel sampler reads
+ * from, the coastline SDF (built once here, not per worker, since it
+ * is the same for every worker and every tile), and a land-use colour
+ * lookup. Plain data and typed arrays only, so it structured-clones
+ * cleanly to each worker.
+ *
+ * @param {{grid: object, landuseEnum: string[], palette: object}} world
+ * @returns {object} Spread into each worker's `{type: 'init', ...}` message.
+ */
+function buildWorldInitPayload({ grid, landuseEnum, palette }) {
+  return {
+    width: grid.width,
+    height: grid.height,
+    cellMiles: grid.cellMiles,
+    elev: grid.elev,
+    landuse: grid.landuse,
+    soil: grid.soil,
+    rain: grid.rain,
+    sdf: buildCoastlineSdf(grid),
+    landuseColours: buildLanduseColourLookup(landuseEnum, palette.landuse),
+    palette,
+  }
+}
 
 /**
  * @param {object} [options]
@@ -25,6 +53,7 @@ const BYTES_PER_PIXEL = 4
  * @param {number} [options.capacityBytes]
  * @param {number} [options.workerCount]
  * @param {Function} [options.createWorker] Forwarded to `tileWorkerPool.js`; only ever overridden in tests.
+ * @param {{grid: object, landuseEnum: string[], palette: object}} [options.world] PHASES.md T2.04: a fully generated world grid plus the rules a terrain sampler needs (`terrain.json`'s `landuseEnum`, `palette.json`). Omitted when no world has loaded yet — every worker then falls back to its own placeholder renderer, matching T2.03's behaviour exactly.
  * @param {() => void} [options.onDirty] Called whenever a requested tile arrives, so the caller can mark its render loop dirty.
  * @param {(key: string|null, message: string) => void} [options.onError]
  * @returns {{ensureVisible: Function, getDrawable: Function, cache: object, destroy: () => void}}
@@ -35,6 +64,7 @@ export function createTileManager({
   capacityBytes = 200 * 1024 * 1024,
   workerCount = 2,
   createWorker,
+  world,
   onDirty,
   onError,
 } = {}) {
@@ -42,6 +72,7 @@ export function createTileManager({
   const pool = createTileWorkerPool({
     workerCount,
     createWorker,
+    initPayload: world ? buildWorldInitPayload(world) : undefined,
     onTile: (key, bitmap) => {
       cache.set(key, bitmap, tilePixels * tilePixels * BYTES_PER_PIXEL)
       onDirty?.()

@@ -22,6 +22,7 @@ function defaultCreateWorker() {
  * @param {object} [options]
  * @param {number} [options.workerCount]
  * @param {() => {postMessage: Function, terminate?: Function, onmessage?: Function, onerror?: Function}} [options.createWorker] Defaults to a real tile-render `Worker`.
+ * @param {object} [options.initPayload] PHASES.md T2.04: when given, sent once to every worker as `{type: 'init', ...initPayload}` before any render request reaches it (the grid layers, coastline SDF, land-use colours and palette a worker needs to paint real terrain). Omitted entirely in tests and whenever no world has been loaded yet, so a worker falls back to its own placeholder renderer; existing callers that never pass this see no behaviour change.
  * @param {(key: string, bitmap: *) => void} [options.onTile]
  * @param {(key: string|null, message: string) => void} [options.onError] `key` is `null` for a whole-worker crash not tied to one request.
  * @returns {{request: (key: string, message: object, priority: number) => void, cancel: (key: string) => void, pendingCount: () => number, inFlightCount: () => number, destroy: () => void}}
@@ -29,6 +30,7 @@ function defaultCreateWorker() {
 export function createTileWorkerPool({
   workerCount = 2,
   createWorker = defaultCreateWorker,
+  initPayload,
   onTile,
   onError,
 } = {}) {
@@ -57,6 +59,13 @@ export function createTileWorkerPool({
   for (let i = 0; i < workerCount; i++) {
     const worker = createWorker()
     attach(worker)
+    // Posted before the worker is added to `idle`/`workers`, but what
+    // actually guarantees ordering is that this call happens inside
+    // this same synchronous loop, before `createTileWorkerPool()`
+    // returns — no render request can reach this worker (via
+    // `request()`, called later by a caller holding the returned pool)
+    // until after that, and postMessage to one worker is always FIFO.
+    if (initPayload) worker.postMessage({ type: 'init', ...initPayload })
     workers.push(worker)
     idle.push(worker)
   }

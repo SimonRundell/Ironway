@@ -35,6 +35,7 @@ const STRESS_TEST_DURATION_MS = 20000
 /**
  * @param {object} props
  * @param {{minX: number, minY: number, maxX: number, maxY: number}} [props.bounds] Island bounds, in miles, for the initial fit-to-island and Home key. Defaults to a 100x100 mile placeholder square.
+ * @param {{grid: object, landuseEnum: string[], palette: object}} [props.world] PHASES.md T2.04: a fully generated world (its grid, `terrain.json`'s `landuseEnum`, `palette.json`) to render real terrain for. Omitted by default, which keeps T2.02/T2.03's flat placeholder world (every tile worker falls back to its own placeholder renderer).
  * @param {number} [props.tileMemoryCapMb] The tile cache's memory cap (DESIGN 9.4/9.9, `client.json`'s `render.tileMemoryCapMb`). Defaults to that file's own starter value; a real page will eventually pass the loaded value through instead.
  * @param {boolean} [props.showDebugStats] Shows a small renders/frames/cache counter and a tile-pipeline stress-test button, for T2.02/T2.03's own Done-when verification. Not meant to stay on by default once T2.12 builds the real HUD.
  * @param {import('react').ReactNode} [props.children] Rendered in the HUD slot, above the canvases, as plain DOM/React.
@@ -42,6 +43,7 @@ const STRESS_TEST_DURATION_MS = 20000
  */
 export default function MapView({
   bounds = { minX: -50, minY: -50, maxX: 50, maxY: 50 },
+  world,
   tileMemoryCapMb = 200,
   showDebugStats = false,
   children,
@@ -124,6 +126,7 @@ export default function MapView({
     markDirtyRef.current = loop.markDirty
     tileManagerRef.current = createTileManager({
       capacityBytes: tileMemoryCapMb * 1024 * 1024,
+      world,
       onDirty: () => loop.markDirty(),
       onError: (key, message) => setWorkerError({ key, message, at: Date.now() }),
     })

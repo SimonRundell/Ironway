@@ -6,12 +6,16 @@ import { TILE_PIXELS, tileWorldSize } from './tiles.js'
  * layers), kept here rather than inline in the component because none
  * of it is a React concern: it is pure canvas drawing against plain
  * `<canvas>` elements, camera and tile-manager values. T2.02 drew a
- * flat placeholder world; T2.03 adds real tile drawing (including the
- * "placeholder blurred parent tile" fallback) on top of the same
- * placeholder terrain colours. T2.04 onward replace pieces of this
- * function (real terrain, the network layer, settlement sprites) one
- * layer at a time; the function's shape (one pass per canvas layer)
- * stays the same.
+ * flat placeholder world; T2.03 added real tile drawing (including
+ * the "placeholder blurred parent tile" fallback), and T2.04 made the
+ * tiles themselves real terrain (`render/terrain/sampleTerrain.js`,
+ * via `workers/tileWorker.js`) whenever a world was loaded — this
+ * function's own job stays the same either way: blit whatever the
+ * tile manager has, real or placeholder. The flat sea fill below only
+ * ever shows through a genuine hole, before any tile (or any cached
+ * ancestor) has arrived yet. T2.05 onward add further layers (the
+ * network, settlement sprites) one at a time; the function's shape
+ * (one pass per canvas layer) stays the same.
  *
  * @module render/drawPlaceholderWorld
  */

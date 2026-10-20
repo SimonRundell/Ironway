@@ -141,4 +141,31 @@ describe('createTileManager', () => {
     for (const worker of workers) expect(worker.terminate).toHaveBeenCalledOnce()
     expect(manager.cache.size).toBe(0)
   })
+
+  it('sends an init payload built from the world to every worker when one is given (PHASES.md T2.04)', () => {
+    const { createWorker, workers } = fakeWorkerFactory()
+    const grid = {
+      width: 4, height: 4, cellMiles: 2,
+      elev: new Int16Array(16), landuse: new Uint8Array(16), soil: new Uint8Array(16), rain: new Uint8Array(16), water: new Uint8Array(16),
+    }
+    const landuseEnum = ['sea', 'arable']
+    const palette = { landuse: { sea: '#000000', arable: '#ffffff' } }
+
+    createTileManager({ createWorker, workerCount: workers.length, world: { grid, landuseEnum, palette } })
+
+    for (const worker of workers) {
+      expect(worker.postMessage).toHaveBeenCalledOnce()
+      const initMessage = worker.postMessage.mock.calls[0][0]
+      expect(initMessage.type).toBe('init')
+      expect(initMessage.width).toBe(4)
+      expect(initMessage.sdf).toBeInstanceOf(Float32Array)
+      expect(initMessage.landuseColours).toEqual([{ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }])
+    }
+  })
+
+  it('sends no init message when no world is given (the default, blank-map behaviour)', () => {
+    const { createWorker, workers } = fakeWorkerFactory()
+    createTileManager({ createWorker, workerCount: workers.length })
+    for (const worker of workers) expect(worker.postMessage).not.toHaveBeenCalled()
+  })
 })

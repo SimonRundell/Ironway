@@ -137,4 +137,20 @@ describe('createTileWorkerPool', () => {
     expect(w1.terminate).toHaveBeenCalledOnce()
     expect(w2.terminate).toHaveBeenCalledOnce()
   })
+
+  it('sends initPayload to every worker, once each, before any render request (PHASES.md T2.04)', () => {
+    const w1 = fakeWorker()
+    const w2 = fakeWorker()
+    const initPayload = { width: 10, height: 10 }
+    createTileWorkerPool({ workerCount: 2, createWorker: fakeWorkerFactory([w1, w2]), initPayload })
+    for (const w of [w1, w2]) {
+      expect(w.postMessage).toHaveBeenCalledWith({ type: 'init', ...initPayload })
+    }
+  })
+
+  it('sends no init message when initPayload is omitted (back-compat with every pre-T2.04 caller)', () => {
+    const w1 = fakeWorker()
+    createTileWorkerPool({ workerCount: 1, createWorker: fakeWorkerFactory([w1]) })
+    expect(w1.postMessage).not.toHaveBeenCalled()
+  })
 })

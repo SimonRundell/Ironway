@@ -14,5 +14,9 @@
   "coastline": "#2b2620",
   "roadByTier": { "0": "#9c8a6a", "1": "#9c8a6a", "2": "#8a7a5c", "3": "#6b6254" },
   "railByTier": { "0": "#4a4740", "1": "#4a4740", "2": "#2b2620", "3": "#2b2620" },
-  "seaLane": "#2f4f5f"
+  "seaLane": "#2f4f5f",
+  "hillshade": { "lightX": -0.55, "lightY": -0.55, "lightZ": 0.62, "strength": 0.4, "reliefScale": 0.015 },
+  "seaDepth": { "shallow": "#5f94ab", "deep": "#1f3a4d", "depthScaleMetres": 60 },
+  "foam": { "colour": "#e8f2ee", "widthMiles": 0.35 },
+  "textureNoise": { "strength": 0.05, "scaleMiles": 0.5 }
 }

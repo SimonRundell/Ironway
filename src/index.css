@@ -322,6 +322,17 @@ table.data-table tbody tr.selected {
 
 .map-view-test-page { position: fixed; inset: 0; }
 
+.map-view-test-page-status {
+  position: fixed;
+  top: var(--space-4);
+  left: var(--space-4);
+  z-index: 1;
+  color: var(--colour-ink);
+  background: var(--colour-surface);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+}
+
 /* MapView (T2.02, DESIGN 9.3): a stack of canvases plus a DOM HUD slot on top. */
 .map-view {
   position: relative;
