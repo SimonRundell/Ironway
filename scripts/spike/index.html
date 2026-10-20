@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Ironway projection spike (T2.00, throwaway)</title>
+  <style>
+    html, body { margin: 0; background: #1c1c1c; color: #ddd; font-family: sans-serif; }
+    #hud { position: fixed; top: 0; left: 0; right: 0; padding: 8px; background: #000a; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; z-index: 2; }
+    #hud label { font-size: 13px; }
+    #stats { position: fixed; bottom: 0; left: 0; right: 0; padding: 6px 8px; background: #000a; font-size: 12px; font-family: monospace; z-index: 2; }
+    canvas { display: block; }
+    button { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <strong>T2.00 spike</strong> — not part of the app, nothing here is imported by src/.
+    <label>Projection:
+      <select id="projection">
+        <option value="topdown">Top-down</option>
+        <option value="iso">2:1 isometric</option>
+      </select>
+    </label>
+    <label>Band:
+      <select id="band">
+        <option value="region">Region (3 ppm)</option>
+        <option value="area" selected>Area (8 ppm)</option>
+        <option value="local">Local (24 ppm)</option>
+        <option value="detail">Detail (60 ppm)</option>
+      </select>
+    </label>
+    <button id="runPan">Run scripted pan</button>
+    <span id="status">generating ironway-001...</span>
+  </div>
+  <canvas id="c"></canvas>
+  <div id="stats"></div>
+  <script type="module" src="./spike.js"></script>
+</body>
+</html>
