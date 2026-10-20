@@ -4,6 +4,7 @@ import LoginPage from './ui/LoginPage.jsx'
 import RegisterPage from './ui/RegisterPage.jsx'
 import SavesPage from './ui/SavesPage.jsx'
 import InspectorPage from './ui/InspectorPage.jsx'
+import MapViewTestPage from './ui/MapViewTestPage.jsx'
 
 /**
  * Root component and route table.
@@ -52,6 +53,14 @@ export default function App() {
         element={
           <RequireAuth>
             <InspectorPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/map-test"
+        element={
+          <RequireAuth>
+            <MapViewTestPage />
           </RequireAuth>
         }
       />
