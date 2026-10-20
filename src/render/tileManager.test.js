@@ -146,10 +146,11 @@ describe('createTileManager', () => {
     const { createWorker, workers } = fakeWorkerFactory()
     const grid = {
       width: 4, height: 4, cellMiles: 2,
-      elev: new Int16Array(16), landuse: new Uint8Array(16), soil: new Uint8Array(16), rain: new Uint8Array(16), water: new Uint8Array(16),
+      elev: new Int16Array(16), landuse: new Uint8Array(16), soil: new Uint8Array(16), rain: new Uint8Array(16),
+      water: new Uint8Array(16), river: new Uint8Array(16), coast: new Uint8Array(16),
     }
     const landuseEnum = ['sea', 'arable']
-    const palette = { landuse: { sea: '#000000', arable: '#ffffff' } }
+    const palette = { landuse: { sea: '#000000', arable: '#ffffff' }, riverWidth: { milesPerClass: 0.07, estuaryBoost: 2.2 } }
 
     createTileManager({ createWorker, workerCount: workers.length, world: { grid, landuseEnum, palette } })
 
@@ -159,6 +160,9 @@ describe('createTileManager', () => {
       expect(initMessage.type).toBe('init')
       expect(initMessage.width).toBe(4)
       expect(initMessage.sdf).toBeInstanceOf(Float32Array)
+      expect(initMessage.riverDistance).toBeInstanceOf(Float32Array)
+      expect(initMessage.riverHalfWidth).toBeInstanceOf(Float32Array)
+      expect(initMessage.landuseEnum).toEqual(landuseEnum)
       expect(initMessage.landuseColours).toEqual([{ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }])
     }
   })

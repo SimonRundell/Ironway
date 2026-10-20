@@ -7,11 +7,11 @@ import { sampleTerrainPixel } from '../render/terrain/sampleTerrain.js'
  * loop.
  *
  * Message protocol: an optional `{type: 'init', ...}` message (the
- * grid layers, coastline SDF, land-use colours and palette from
- * `tileManager.js`'s `buildWorldInitPayload()`) may arrive once,
- * before any render request, and is kept in this module's own state
- * for every subsequent `render` message this worker receives. Render
- * requests are `{type: 'render', key, level, tileX, tileY,
+ * grid layers, coastline SDF, river fields, land-use colours/enum and
+ * palette from `tileManager.js`'s `buildWorldInitPayload()`) may arrive
+ * once, before any render request, and is kept in this module's own
+ * state for every subsequent `render` message this worker receives.
+ * Render requests are `{type: 'render', key, level, tileX, tileY,
  * tileWorldSize, tilePixels}`; the reply is exactly one of `{type:
  * 'tile', key, bitmap}` (bitmap transferred, not copied) or `{type:
  * 'error', key, message}`.
@@ -61,6 +61,10 @@ function renderRealTerrainTile(ctx, { tileX, tileY, tileWorldSize, tilePixels })
   const grid = { width: world.width, height: world.height, cellMiles: world.cellMiles, elev: world.elev, landuse: world.landuse, soil: world.soil, rain: world.rain }
   const worldOriginX = tileX * tileWorldSize
   const worldOriginY = tileY * tileWorldSize
+  // tileWorldSize = TILE_PIXELS / levelPpm by construction (tiles.js's
+  // tileWorldSize()), so this recovers the level's own ppm exactly —
+  // DESIGN 9.4's "ppm >= 24" fine-land-cover gate needs to know it.
+  const ppm = tilePixels / tileWorldSize
 
   const image = ctx.createImageData(tilePixels, tilePixels)
   for (let py = 0; py < tilePixels; py++) {
@@ -69,6 +73,7 @@ function renderRealTerrainTile(ctx, { tileX, tileY, tileWorldSize, tilePixels })
       const worldX = worldOriginX + ((px + 0.5) / tilePixels) * tileWorldSize
       const { r, g, b } = sampleTerrainPixel({
         grid, sdf: world.sdf, worldX, worldY, landuseColours: world.landuseColours, palette: world.palette,
+        landuseEnum: world.landuseEnum, riverDistance: world.riverDistance, riverHalfWidth: world.riverHalfWidth, ppm,
       })
       const i = (py * tilePixels + px) * 4
       image.data[i] = r

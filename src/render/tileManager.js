@@ -13,6 +13,7 @@
 
 import { createTileLruCache } from './tileCache.js'
 import { buildCoastlineSdf } from './terrain/coastlineSdf.js'
+import { buildRiverFields } from './terrain/riverField.js'
 import { buildLanduseColourLookup } from './terrain/sampleTerrain.js'
 import { createTileWorkerPool } from './tileWorkerPool.js'
 import { TILE_PIXELS, buildTileLevels, parentTileKey, parseTileKey, tileWorldSize, visibleTiles } from './tiles.js'
@@ -22,16 +23,19 @@ const BYTES_PER_PIXEL = 4
 
 /**
  * Builds the one-time payload every tile worker needs to paint real
- * terrain (PHASES.md T2.04): the grid layers a pixel sampler reads
- * from, the coastline SDF (built once here, not per worker, since it
- * is the same for every worker and every tile), and a land-use colour
- * lookup. Plain data and typed arrays only, so it structured-clones
- * cleanly to each worker.
+ * terrain (PHASES.md T2.04/T2.05): the grid layers a pixel sampler
+ * reads from, the coastline SDF and river distance/half-width fields
+ * (all built once here, not per worker, since they are the same for
+ * every worker and every tile), a land-use colour lookup, and
+ * `landuseEnum` itself (needed at render time to key fine land cover
+ * off the land-use class name, not just its colour). Plain data and
+ * typed arrays only, so it structured-clones cleanly to each worker.
  *
  * @param {{grid: object, landuseEnum: string[], palette: object}} world
  * @returns {object} Spread into each worker's `{type: 'init', ...}` message.
  */
 function buildWorldInitPayload({ grid, landuseEnum, palette }) {
+  const { riverDistance, riverHalfWidth } = buildRiverFields(grid, palette.riverWidth)
   return {
     width: grid.width,
     height: grid.height,
@@ -41,7 +45,10 @@ function buildWorldInitPayload({ grid, landuseEnum, palette }) {
     soil: grid.soil,
     rain: grid.rain,
     sdf: buildCoastlineSdf(grid),
+    riverDistance,
+    riverHalfWidth,
     landuseColours: buildLanduseColourLookup(landuseEnum, palette.landuse),
+    landuseEnum,
     palette,
   }
 }

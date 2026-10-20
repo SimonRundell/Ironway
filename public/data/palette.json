@@ -18,5 +18,7 @@
   "hillshade": { "lightX": -0.55, "lightY": -0.55, "lightZ": 0.62, "strength": 0.4, "reliefScale": 0.015 },
   "seaDepth": { "shallow": "#5f94ab", "deep": "#1f3a4d", "depthScaleMetres": 60 },
   "foam": { "colour": "#e8f2ee", "widthMiles": 0.35 },
-  "textureNoise": { "strength": 0.05, "scaleMiles": 0.5 }
+  "textureNoise": { "strength": 0.05, "scaleMiles": 0.5 },
+  "riverWidth": { "milesPerClass": 0.07, "estuaryBoost": 2.2 },
+  "fineLandCover": { "minPpm": 24 }
 }

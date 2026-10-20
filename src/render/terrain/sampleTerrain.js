@@ -1,21 +1,33 @@
-import { fbm2D } from '../../sim/noise.js'
+import { fbm2D, valueNoise2D } from '../../sim/noise.js'
 
 /**
- * Per-pixel terrain colour sampling (DESIGN 9.4, PHASES T2.04): bilinear
- * elevation and land-use sampling for smooth relief with no cell
- * blockiness, hillshade from a north-west light, a sea depth gradient,
- * a signed-distance coastline with a foam band, soil/rain tinting, and
- * a small deterministic noise texture. Pure maths over typed-array
- * grid layers and a `Float32Array` SDF (from `coastlineSdf.js`) — no
- * canvas, no worker — so it is unit testable directly;
- * `workers/tileWorker.js` is the only caller that actually writes
- * pixels with it.
+ * Per-pixel terrain colour sampling (DESIGN 9.4, PHASES T2.04/T2.05):
+ * bilinear elevation and land-use sampling for smooth relief with no
+ * cell blockiness, hillshade from a north-west light, a sea depth
+ * gradient, a signed-distance coastline with a foam band, soil/rain
+ * tinting, rivers as variable-width curves, and (at `ppm >= 24`)
+ * deterministic fine land cover — tree glyphs, hedgerows, pasture
+ * patches, heather speckle, reeds. Pure maths over typed-array grid
+ * layers and `Float32Array` fields (from `coastlineSdf.js` and
+ * `riverField.js`) — no canvas, no worker — so it is unit testable
+ * directly; `workers/tileWorker.js` is the only caller that actually
+ * writes pixels with it.
  *
  * @module render/terrain/sampleTerrain
  */
 
 /** @type {number} Fixed seed for the cosmetic texture-noise layer. Deliberately not tied to the world's own seed: the noise only breaks up flat colour, it is not part of the generator, so every world can share one constant. */
 const TEXTURE_NOISE_SEED = 90125
+
+/** @type {number} Fixed seed for the forest tree-glyph scatter. */
+const TREE_SEED = 40503
+/** @type {number} Fixed seed for the moor heather-speckle scatter. */
+const HEATHER_SEED = 61009
+/** @type {number} Fixed seed for the pastoral patch noise. */
+const PASTURE_PATCH_SEED = 71511
+
+/** @type {number} A river's rendered width never drops below this many screen pixels, regardless of its actual width class or the current zoom. A class-1 headwater stream's true width (fractions of a world mile) becomes sub-pixel at Region/Area zoom without this, which reads as a dashed, broken line rather than DESIGN 9.4's smooth curve — the same "minimum line weight" convention a hand-drawn atlas uses for its thinnest rivers. */
+const MIN_RIVER_SCREEN_PIXELS = 1.5
 
 /**
  * Caches the few `hexToRgb()` conversions a palette needs, keyed on
@@ -27,13 +39,13 @@ const TEXTURE_NOISE_SEED = 90125
  * fill. A `WeakMap` means a new palette (a reload, a different world)
  * is never served another palette's stale colours.
  *
- * @type {WeakMap<object, {seaShallow: object, seaDeep: object, foam: object, coastline: object}>}
+ * @type {WeakMap<object, {seaShallow: object, seaDeep: object, foam: object, coastline: object, river: object}>}
  */
 const paletteColourCache = new WeakMap()
 
 /**
  * @param {object} palette The validated `palette.json` rules.
- * @returns {{seaShallow: {r,g,b}, seaDeep: {r,g,b}, foam: {r,g,b}, coastline: {r,g,b}}}
+ * @returns {{seaShallow: {r,g,b}, seaDeep: {r,g,b}, foam: {r,g,b}, coastline: {r,g,b}, river: {r,g,b}}}
  */
 function getPaletteColours(palette) {
   let colours = paletteColourCache.get(palette)
@@ -43,6 +55,7 @@ function getPaletteColours(palette) {
       seaDeep: hexToRgb(palette.seaDepth.deep),
       foam: hexToRgb(palette.foam.colour),
       coastline: hexToRgb(palette.coastline),
+      river: hexToRgb(palette.river),
     }
     paletteColourCache.set(palette, colours)
   }
@@ -124,6 +137,56 @@ function lerpRgb(a, b, t) {
  */
 export function buildLanduseColourLookup(landuseEnum, paletteLanduse) {
   return landuseEnum.map((name) => hexToRgb(paletteLanduse[name] ?? '#888888'))
+}
+
+/**
+ * Bilinearly samples a flat typed-array grid layer at fractional cell
+ * coordinates, clamping to the grid edge rather than reading out of
+ * bounds (DESIGN 9.4's "bilinear sample... for smooth relief").
+ *
+ * @param {Int16Array|Uint8Array|Float32Array} layer
+ * @param {number} width
+ * @param {number} height
+ * @param {number} gx Fractional cell x.
+ * @param {number} gy Fractional cell y.
+ * @returns {number}
+ */
+/**
+ * Samples a flat typed-array grid layer at fractional cell coordinates
+ * by taking the *minimum* of the 4 surrounding cells, not interpolating
+ * between them. Used for `riverField.js`'s distance field: a 1-cell-wide
+ * river that jogs diagonally (the norm for a D8-traced path) has a
+ * saddle point exactly between two diagonally-adjacent river cells
+ * where plain bilinear interpolation of their distance values — 0 at
+ * each river cell, but up to a full cell's worth at the two *other*
+ * corners of that same square — averages out to a value larger than a
+ * thin river's half-width, pinching the rendered line to nothing right
+ * at every diagonal step. Taking the minimum instead means a point is
+ * never considered farther from the river than its closest actual
+ * neighbour, which removes the pinch entirely; the antialiased edge
+ * still comes from the smoothstep against half-width where this value
+ * is used, not from this sampling step.
+ *
+ * @param {Float32Array} layer
+ * @param {number} width
+ * @param {number} height
+ * @param {number} gx Fractional cell x.
+ * @param {number} gy Fractional cell y.
+ * @returns {number}
+ */
+function minCornerSample(layer, width, height, gx, gy) {
+  const x0 = Math.floor(gx)
+  const y0 = Math.floor(gy)
+  const cx0 = Math.min(Math.max(x0, 0), width - 1)
+  const cy0 = Math.min(Math.max(y0, 0), height - 1)
+  const cx1 = Math.min(Math.max(x0 + 1, 0), width - 1)
+  const cy1 = Math.min(Math.max(y0 + 1, 0), height - 1)
+
+  const v00 = layer[cy0 * width + cx0]
+  const v10 = layer[cy0 * width + cx1]
+  const v01 = layer[cy1 * width + cx0]
+  const v11 = layer[cy1 * width + cx1]
+  return Math.min(v00, v10, v01, v11)
 }
 
 /**
@@ -245,10 +308,134 @@ function textureNoiseMultiplier(worldX, worldY, textureNoiseRules) {
 }
 
 /**
+ * @param {{r: number, g: number, b: number}} colour
+ * @param {number} factor
+ * @returns {{r: number, g: number, b: number}}
+ */
+function scaleColour(colour, factor) {
+  return { r: colour.r * factor, g: colour.g * factor, b: colour.b * factor }
+}
+
+/**
+ * Positive-result modulo (`%` keeps the sign of its left operand in
+ * JS), needed so a repeating pattern (hedgerow lines, reeds) reads the
+ * same at negative world coordinates as it would if mirrored to positive.
+ *
+ * @param {number} value
+ * @param {number} modulus
+ * @returns {number}
+ */
+function floorMod(value, modulus) {
+  return ((value % modulus) + modulus) % modulus
+}
+
+/**
+ * A deterministic scatter of round "glyph" dots (DESIGN 9.4's tree
+ * glyphs and heather speckle): world space is divided into a fixed-size
+ * grid, each cell either has one jittered dot or none (`coverage`
+ * controls the fraction that do), and a pixel's factor is how far
+ * inside the dot it falls, smoothstepped for a soft edge. Deliberately
+ * does not search neighbouring cells for a dot whose circle might
+ * overlap this one (the usual full Worley-noise treatment): jitter and
+ * radius are kept small relative to the cell so edge-clipping is rare,
+ * trading a little organic irregularity for roughly a ninth of the
+ * per-pixel cost. Built entirely from `worldX`/`worldY` (never a
+ * tile-local coordinate), so the pattern is identical regardless of
+ * which tile a pixel falls in — the Done-when's "no seams" requirement.
+ *
+ * @param {number} worldX
+ * @param {number} worldY
+ * @param {number} seed
+ * @param {number} cellMiles Size of one scatter cell.
+ * @param {number} coverage Fraction of cells that contain a dot, 0 to 1.
+ * @param {number} dotRadiusFraction Dot radius as a fraction of `cellMiles`.
+ * @returns {number} 0 outside any dot, up to 1 at a dot's centre.
+ */
+function scatterDotFactor(worldX, worldY, seed, cellMiles, coverage, dotRadiusFraction) {
+  const cx = Math.floor(worldX / cellMiles)
+  const cy = Math.floor(worldY / cellMiles)
+
+  const present = valueNoise2D(seed, cx, cy)
+  if (present > coverage) return 0
+
+  const jitterX = valueNoise2D(seed + 1, cx, cy)
+  const jitterY = valueNoise2D(seed + 2, cx, cy)
+  const centreX = (cx + 0.3 + jitterX * 0.4) * cellMiles
+  const centreY = (cy + 0.3 + jitterY * 0.4) * cellMiles
+
+  const dx = worldX - centreX
+  const dy = worldY - centreY
+  const dist = Math.sqrt(dx * dx + dy * dy)
+  const radius = cellMiles * dotRadiusFraction
+  return 1 - smoothstep(radius * 0.6, radius, dist)
+}
+
+/**
+ * A repeating thin-line pattern (DESIGN 9.4's hedgerows and reeds):
+ * lines run diagonally (`worldX + worldY`) spaced `spacingMiles` apart,
+ * each `lineWidthMiles` wide with a smoothstepped edge.
+ *
+ * @param {number} worldX
+ * @param {number} worldY
+ * @param {number} spacingMiles
+ * @param {number} lineWidthMiles
+ * @returns {number} 0 between lines, up to 1 exactly on a line.
+ */
+function lineStripeFactor(worldX, worldY, spacingMiles, lineWidthMiles) {
+  const phase = floorMod(worldX + worldY, spacingMiles)
+  const distanceToLine = Math.min(phase, spacingMiles - phase)
+  return 1 - smoothstep(0, lineWidthMiles, distanceToLine)
+}
+
+/**
+ * Applies DESIGN 9.4's `ppm >= 24` fine land cover for one land-use
+ * class on top of an already-computed base colour: tree glyphs on
+ * forest, hedgerow lines on arable, blotchy patches on pastoral,
+ * heather speckle on moor, reed lines on marsh. Every other class is
+ * unaffected (sea, lake and rock have no fine-cover treatment).
+ *
+ * @param {{r: number, g: number, b: number}} colour The colour so far.
+ * @param {number} worldX
+ * @param {number} worldY
+ * @param {string} nearestLanduseName The land-use class name at the nearest grid cell (not bilinearly blended: a pattern needs one definite class to key off).
+ * @returns {{r: number, g: number, b: number}}
+ */
+function applyFineLandCover(colour, worldX, worldY, nearestLanduseName) {
+  switch (nearestLanduseName) {
+    case 'forest': {
+      const f = scatterDotFactor(worldX, worldY, TREE_SEED, 0.55, 0.6, 0.3)
+      return scaleColour(colour, 1 - f * 0.25)
+    }
+    case 'arable': {
+      const f = lineStripeFactor(worldX, worldY, 0.6, 0.05)
+      return scaleColour(colour, 1 - f * 0.3)
+    }
+    case 'pastoral': {
+      const n = fbm2D(PASTURE_PATCH_SEED, worldX / 0.8, worldY / 0.8, 2, 2, 0.5)
+      return scaleColour(colour, 1 + (n - 0.5) * 0.25)
+    }
+    case 'moor': {
+      const f = scatterDotFactor(worldX, worldY, HEATHER_SEED, 0.18, 0.5, 0.35)
+      return scaleColour(colour, 1 + f * 0.3)
+    }
+    case 'marsh': {
+      const f = lineStripeFactor(worldX, worldY, 0.12, 0.03)
+      return scaleColour(colour, 1 - f * 0.25)
+    }
+    default:
+      return colour
+  }
+}
+
+/**
  * Samples the final terrain colour at one world point (DESIGN 9.4):
  * land-use blend tinted by soil and rain, hillshaded, blended against
- * a sea-depth ramp across a signed-distance coastline with a foam
- * band and a crisp stroke, then given a small deterministic texture.
+ * a sea-depth ramp (itself tinted toward the local land-use colour, so
+ * a lake reads a different hue from the open sea) across a
+ * signed-distance coastline with a foam band and a crisp stroke, with
+ * rivers drawn as variable-width curves and, at `ppm >= 24`,
+ * deterministic fine land cover, then given a small deterministic
+ * texture.
  *
  * @param {object} options
  * @param {object} options.grid A fully generated world grid (elev, landuse, soil, rain, cellMiles, width, height).
@@ -256,10 +443,14 @@ function textureNoiseMultiplier(worldX, worldY, textureNoiseRules) {
  * @param {number} options.worldX World x coordinate, in miles.
  * @param {number} options.worldY World y coordinate, in miles.
  * @param {{r: number, g: number, b: number}[]} options.landuseColours From `buildLanduseColourLookup()`.
- * @param {object} options.palette The validated `palette.json` rules (hillshade, seaDepth, foam, coastline, textureNoise).
+ * @param {object} options.palette The validated `palette.json` rules (hillshade, seaDepth, foam, coastline, river, riverWidth, fineLandCover, textureNoise).
+ * @param {string[]} [options.landuseEnum] `terrain.json`'s `landuseEnum`. Only needed for fine land cover; omit to skip it entirely regardless of `ppm`.
+ * @param {Float32Array} [options.riverDistance] From `riverField.js`'s `buildRiverFields()`. Omit to render no rivers at all.
+ * @param {Float32Array} [options.riverHalfWidth] From `riverField.js`'s `buildRiverFields()`.
+ * @param {number} [options.ppm] This tile's effective pixels-per-mile, for the `ppm >= 24` fine-land-cover gate. Omit (or `landuseEnum` omit) to always skip fine land cover.
  * @returns {{r: number, g: number, b: number}} 0-255 integer channels.
  */
-export function sampleTerrainPixel({ grid, sdf, worldX, worldY, landuseColours, palette }) {
+export function sampleTerrainPixel({ grid, sdf, worldX, worldY, landuseColours, palette, landuseEnum, riverDistance, riverHalfWidth, ppm }) {
   const { width, height, cellMiles, elev, soil, rain } = grid
   const gx = worldX / cellMiles
   const gy = worldY / cellMiles
@@ -269,29 +460,71 @@ export function sampleTerrainPixel({ grid, sdf, worldX, worldY, landuseColours, 
   const coastHalfWidthMiles = cellMiles * 0.5
   const landFactor = smoothstep(-coastHalfWidthMiles, coastHalfWidthMiles, sdfValue)
 
+  const rawLanduseColour = bilinearLanduseColour(grid.landuse, width, height, gx, gy, landuseColours)
+
   // Land colour: land-use blend, tinted by soil fertility (richer soils
   // nudged greener) and rainfall (wetter land nudged cooler/bluer),
   // then shaded by the elevation gradient.
-  let landColour = bilinearLanduseColour(grid.landuse, width, height, gx, gy, landuseColours)
   const soilByte = bilinearSample(soil, width, height, gx, gy)
   const rainByte = bilinearSample(rain, width, height, gx, gy)
   const soilTint = (soilByte / 255 - 0.5) * 0.15
   const rainTint = (rainByte / 255 - 0.5) * 0.1
-  landColour = {
-    r: landColour.r * (1 - rainTint * 0.5),
-    g: landColour.g * (1 + soilTint),
-    b: landColour.b * (1 + rainTint * 0.5),
+  let landColour = {
+    r: rawLanduseColour.r * (1 - rainTint * 0.5),
+    g: rawLanduseColour.g * (1 + soilTint),
+    b: rawLanduseColour.b * (1 + rainTint * 0.5),
   }
   const shade = 1 + hillshadeDot(grid, gx, gy, palette.hillshade) * palette.hillshade.strength
   landColour = { r: landColour.r * shade, g: landColour.g * shade, b: landColour.b * shade }
 
   // Sea colour: a depth ramp from the same elevation field (negative
-  // below sea level), shallow near the coast, deep further out.
+  // below sea level), shallow near the coast, deep further out, tinted
+  // toward the local land-use colour so a lake (landuse class 'lake')
+  // reads a visibly different hue from the open sea (class 'sea')
+  // rather than both sharing one identical ramp.
   const elevation = bilinearSample(elev, width, height, gx, gy)
   const depthFactor = clamp01(Math.max(0, -elevation) / palette.seaDepth.depthScaleMetres)
-  const seaColour = lerpRgb(paletteColours.seaShallow, paletteColours.seaDeep, depthFactor)
+  const depthRamp = lerpRgb(paletteColours.seaShallow, paletteColours.seaDeep, depthFactor)
+  const seaColour = lerpRgb(depthRamp, rawLanduseColour, 0.35)
 
   let colour = lerpRgb(seaColour, landColour, landFactor)
+
+  // Rivers: a variable-width curve from riverField.js's continuous
+  // distance/half-width fields (DESIGN 9.4), not a traced polyline —
+  // see riverField.js for why. Naturally fades out over water (a
+  // river's own `riverHalfWidth` is 0 at the river cell's sea/lake
+  // mouth, but bilinear sampling blends in the last land cell's
+  // nonzero width for a few pixels past the shore), which is exactly
+  // the Done-when's "connect smoothly to the sea with no gaps".
+  if (riverDistance && riverHalfWidth) {
+    // riverHalfWidth still blends smoothly (a real taper looks right);
+    // riverDistance uses the minimum of the 4 surrounding cells instead
+    // (see minCornerSample's own doc comment) so a diagonal river jog
+    // never pinches shut between cells.
+    let riverHalfWidthHere = bilinearSample(riverHalfWidth, width, height, gx, gy)
+    if (riverHalfWidthHere > 0) {
+      if (ppm !== undefined) {
+        const minHalfWidthMiles = (MIN_RIVER_SCREEN_PIXELS / 2) / ppm
+        riverHalfWidthHere = Math.max(riverHalfWidthHere, minHalfWidthMiles)
+      }
+      const riverDistanceHere = minCornerSample(riverDistance, width, height, gx, gy)
+      const riverFactor = 1 - smoothstep(riverHalfWidthHere * 0.6, riverHalfWidthHere, riverDistanceHere)
+      if (riverFactor > 0) colour = lerpRgb(colour, paletteColours.river, riverFactor)
+    }
+  }
+
+  // Fine land cover (DESIGN 9.4: "at ppm >= 24"): gated by zoom so
+  // Region/Area tiles, which cover far more world area per pixel,
+  // never pay for texture nobody can resolve anyway. Keyed off the
+  // *nearest* cell's land-use class, not the bilinear blend used for
+  // colour above — a pattern needs one definite class to choose
+  // between tree glyphs, hedgerows, patches, speckle or reeds.
+  if (landuseEnum && ppm !== undefined && ppm >= palette.fineLandCover.minPpm) {
+    const nearestX = Math.min(Math.max(Math.round(gx), 0), width - 1)
+    const nearestY = Math.min(Math.max(Math.round(gy), 0), height - 1)
+    const nearestLanduseName = landuseEnum[grid.landuse[nearestY * width + nearestX]]
+    colour = applyFineLandCover(colour, worldX, worldY, nearestLanduseName)
+  }
 
   // Foam: a soft band hugging the coastline on both sides, peaking
   // exactly at the shore and fading out by `foam.widthMiles`. A
