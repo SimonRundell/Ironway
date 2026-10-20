@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react'
-import { fitToIsland, panByScreenDelta, stepInertia, zoomAtPoint, zoomByWheel } from '../render/camera.js'
+import { useEffect, useRef, useState } from 'react'
+import { MAX_PPM, MIN_PPM, fitToIsland, panByScreenDelta, stepInertia, zoomAtPoint, zoomByWheel } from '../render/camera.js'
+import { drawPlaceholderWorld } from '../render/drawPlaceholderWorld.js'
 import { topDownProjection } from '../render/projection.js'
 import { createRenderLoop, resizeCanvasForDpr } from '../render/renderLoop.js'
+import { createTileManager } from '../render/tileManager.js'
 
 /**
  * The Phase 2 canvas stack (PHASES.md T2.02, DESIGN 9.3): four stacked
@@ -10,15 +12,11 @@ import { createRenderLoop, resizeCanvasForDpr } from '../render/renderLoop.js'
  * state, and every pointer/wheel/keyboard handler mutates that ref and
  * calls the render loop's `markDirty()` instead of `setState` — so
  * panning, zooming and inertia never trigger a React re-render, only
- * canvas redraws. `src/render/camera.js` and `projection.js` do every
- * piece of screen maths; this component only wires browser events to
- * them and draws.
- *
- * T2.02 itself only proves the pipeline with a blank placeholder world
- * (a flat sea colour, a coarse mile grid, and a marker at the world
- * origin). Real terrain (T2.03/T2.04), the network layer (T2.06) and
- * settlement sprites (T2.07) replace the placeholder draw calls layer
- * by layer in later tasks without changing anything here.
+ * canvas redraws. This component only wires browser events (pointer,
+ * wheel, keyboard, resize) to `render/camera.js`; the actual per-frame
+ * drawing is `render/drawPlaceholderWorld.js` (T2.03 adds the tile
+ * pipeline on top of T2.02's flat placeholder), kept out of this file
+ * since it is canvas logic, not a React concern.
  *
  * @module ui/MapView
  */
@@ -31,18 +29,20 @@ const KEY_ZOOM_FACTOR = 1.4
 const INERTIA_FRICTION = 4
 /** @type {number} Screen pixels per second below which inertia stops. */
 const INERTIA_STOP_SPEED = 2
-/** @type {number} World-mile spacing of the placeholder grid. */
-const GRID_STEP_MILES = 10
+/** @type {number} Length of the scripted pan-and-zoom stress test (T2.03's own Done-when names a 5-minute scripted run; this is a shorter, interactively-triggered version of the same sweep — see DECISIONS.md). */
+const STRESS_TEST_DURATION_MS = 20000
 
 /**
  * @param {object} props
  * @param {{minX: number, minY: number, maxX: number, maxY: number}} [props.bounds] Island bounds, in miles, for the initial fit-to-island and Home key. Defaults to a 100x100 mile placeholder square.
- * @param {boolean} [props.showDebugStats] Shows a small renders/frames counter, for T2.02's own "no React re-render per frame" verification. Not meant to stay on by default once T2.12 builds the real HUD.
+ * @param {number} [props.tileMemoryCapMb] The tile cache's memory cap (DESIGN 9.4/9.9, `client.json`'s `render.tileMemoryCapMb`). Defaults to that file's own starter value; a real page will eventually pass the loaded value through instead.
+ * @param {boolean} [props.showDebugStats] Shows a small renders/frames/cache counter and a tile-pipeline stress-test button, for T2.02/T2.03's own Done-when verification. Not meant to stay on by default once T2.12 builds the real HUD.
  * @param {import('react').ReactNode} [props.children] Rendered in the HUD slot, above the canvases, as plain DOM/React.
  * @returns {JSX.Element}
  */
 export default function MapView({
   bounds = { minX: -50, minY: -50, maxX: 50, maxY: 50 },
+  tileMemoryCapMb = 200,
   showDebugStats = false,
   children,
 }) {
@@ -59,6 +59,15 @@ export default function MapView({
   const inertiaRef = useRef(null)
   const statsRef = useRef({ renders: 0, frames: 0 })
   const markDirtyRef = useRef(null)
+  const tileManagerRef = useRef(null)
+  const holeSinceRef = useRef(new Map())
+  const holeStatsRef = useRef({ maxMs: 0 })
+  const stressTestRef = useRef(null)
+
+  // Worker errors are rare and exceptional, not a per-frame concern, so
+  // unlike camera state this is ordinary React state (DESIGN 9.4's
+  // "worker errors surface in the UI").
+  const [workerError, setWorkerError] = useState(null)
 
   // Counts React renders of this component. Should stop climbing after
   // mount: every interaction below mutates refs and redraws canvases
@@ -67,7 +76,8 @@ export default function MapView({
 
   useEffect(() => {
     const container = containerRef.current
-    const canvases = [terrainRef.current, overlayRef.current, dynamicRef.current, labelsRef.current]
+    const canvasList = [terrainRef.current, overlayRef.current, dynamicRef.current, labelsRef.current]
+    const canvases = { terrain: terrainRef.current, overlay: overlayRef.current, dynamic: dynamicRef.current, labels: labelsRef.current }
 
     cameraRef.current = fitToIsland(
       { width: container.clientWidth || 800, height: container.clientHeight || 600 },
@@ -90,79 +100,33 @@ export default function MapView({
       }
 
       statsRef.current.frames += 1
-      const camera = cameraRef.current
-      const viewport = viewportRef.current
-
-      const terrainCtx = terrainRef.current.getContext('2d')
-      terrainCtx.save()
-      terrainCtx.setTransform(1, 0, 0, 1, 0, 0)
-      // Canvas fillStyle cannot read a CSS custom property directly;
-      // this matches index.css's --colour-sea by value instead.
-      terrainCtx.fillStyle = '#5f8fa6'
-      terrainCtx.fillRect(0, 0, terrainRef.current.width, terrainRef.current.height)
-      terrainCtx.restore()
-
-      const overlayCanvas = overlayRef.current
-      const overlayCtx = overlayCanvas.getContext('2d')
-      overlayCtx.save()
-      overlayCtx.setTransform(1, 0, 0, 1, 0, 0)
-      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height)
-      overlayCtx.strokeStyle = 'rgba(255, 255, 255, 0.18)'
-      overlayCtx.lineWidth = 1
-      const corners = topDownProjection.visibleWorldPolygon(camera, viewport)
-      const minX = Math.min(...corners.map((c) => c.x))
-      const maxX = Math.max(...corners.map((c) => c.x))
-      const minY = Math.min(...corners.map((c) => c.y))
-      const maxY = Math.max(...corners.map((c) => c.y))
-      overlayCtx.beginPath()
-      for (let x = Math.floor(minX / GRID_STEP_MILES) * GRID_STEP_MILES; x <= maxX; x += GRID_STEP_MILES) {
-        const top = topDownProjection.worldToScreen(camera, viewport, { x, y: minY })
-        const bottom = topDownProjection.worldToScreen(camera, viewport, { x, y: maxY })
-        overlayCtx.moveTo(top.x, top.y)
-        overlayCtx.lineTo(bottom.x, bottom.y)
-      }
-      for (let y = Math.floor(minY / GRID_STEP_MILES) * GRID_STEP_MILES; y <= maxY; y += GRID_STEP_MILES) {
-        const left = topDownProjection.worldToScreen(camera, viewport, { x: minX, y })
-        const right = topDownProjection.worldToScreen(camera, viewport, { x: maxX, y })
-        overlayCtx.moveTo(left.x, left.y)
-        overlayCtx.lineTo(right.x, right.y)
-      }
-      overlayCtx.stroke()
-      overlayCtx.restore()
-
-      // The origin marker is billboarded (DESIGN 9.2.1, confirmed by
-      // the T2.00 spike): its position is projected, but it is drawn
-      // with the canvas transform at identity so a future sheared
-      // projection could never distort the icon itself.
-      const dynamicCanvas = dynamicRef.current
-      const dynamicCtx = dynamicCanvas.getContext('2d')
-      dynamicCtx.save()
-      dynamicCtx.setTransform(1, 0, 0, 1, 0, 0)
-      dynamicCtx.clearRect(0, 0, dynamicCanvas.width, dynamicCanvas.height)
-      const originScreen = topDownProjection.worldToScreen(camera, viewport, { x: 0, y: 0 })
-      dynamicCtx.fillStyle = '#ffd966'
-      dynamicCtx.beginPath()
-      dynamicCtx.arc(originScreen.x, originScreen.y, 6, 0, Math.PI * 2)
-      dynamicCtx.fill()
-      dynamicCtx.restore()
-
-      const labelsCanvas = labelsRef.current
-      const labelsCtx = labelsCanvas.getContext('2d')
-      labelsCtx.save()
-      labelsCtx.setTransform(1, 0, 0, 1, 0, 0)
-      labelsCtx.clearRect(0, 0, labelsCanvas.width, labelsCanvas.height)
-      labelsCtx.fillStyle = '#fff8ee'
-      labelsCtx.font = '12px sans-serif'
-      labelsCtx.fillText('Origin (0, 0)', originScreen.x + 10, originScreen.y + 4)
-      labelsCtx.restore()
+      drawPlaceholderWorld({
+        timestampMs,
+        canvases,
+        camera: cameraRef.current,
+        viewport: viewportRef.current,
+        tileManager: tileManagerRef.current,
+        holeSince: holeSinceRef.current,
+        holeStats: holeStatsRef.current,
+      })
 
       if (debugRef.current) {
-        debugRef.current.textContent = `renders: ${statsRef.current.renders} / frames: ${statsRef.current.frames} / ppm: ${camera.ppm.toFixed(1)}`
+        const cache = tileManagerRef.current.cache
+        const cacheMb = (cache.totalBytes / (1024 * 1024)).toFixed(1)
+        const capMb = tileMemoryCapMb.toFixed(0)
+        debugRef.current.textContent =
+          `renders: ${statsRef.current.renders} / frames: ${statsRef.current.frames} / ppm: ${cameraRef.current.ppm.toFixed(1)}` +
+          ` / tiles: ${cache.size} (${cacheMb}/${capMb} MB) / max hole: ${holeStatsRef.current.maxMs.toFixed(0)}ms`
       }
     }
 
     const loop = createRenderLoop({ render: draw })
     markDirtyRef.current = loop.markDirty
+    tileManagerRef.current = createTileManager({
+      capacityBytes: tileMemoryCapMb * 1024 * 1024,
+      onDirty: () => loop.markDirty(),
+      onError: (key, message) => setWorkerError({ key, message, at: Date.now() }),
+    })
     loop.start()
 
     /** @returns {void} */
@@ -170,7 +134,7 @@ export default function MapView({
       const width = container.clientWidth
       const height = container.clientHeight
       viewportRef.current = { width, height }
-      for (const canvas of canvases) {
+      for (const canvas of canvasList) {
         resizeCanvasForDpr(canvas, width, height)
       }
       loop.markDirty()
@@ -193,6 +157,8 @@ export default function MapView({
       resizeObserver.disconnect()
       container.removeEventListener('wheel', onWheel)
       loop.stop()
+      tileManagerRef.current?.destroy()
+      if (stressTestRef.current) cancelAnimationFrame(stressTestRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -272,6 +238,51 @@ export default function MapView({
     markDirtyRef.current?.()
   }
 
+  /**
+   * Debug-only scripted pan and zoom (T2.03's own Done-when names a
+   * 5-minute version of this exact sweep; see DECISIONS.md for why
+   * this interactive one runs shorter). Sweeps the camera across the
+   * whole island and through every tile zoom level, so the tile
+   * pipeline's own debug line (cache size, max hole duration) can be
+   * watched settle under sustained churn.
+   *
+   * @returns {void}
+   */
+  function runStressTest() {
+    if (stressTestRef.current || !cameraRef.current) return
+    const startedAt = performance.now()
+    const restoreCamera = cameraRef.current
+    const width = bounds.maxX - bounds.minX
+    const height = bounds.maxY - bounds.minY
+    const centreX = (bounds.minX + bounds.maxX) / 2
+    const centreY = (bounds.minY + bounds.maxY) / 2
+    const logMinPpm = Math.log(MIN_PPM)
+    const logMaxPpm = Math.log(MAX_PPM)
+
+    function tick(now) {
+      const t = (now - startedAt) / STRESS_TEST_DURATION_MS
+      if (t >= 1) {
+        stressTestRef.current = null
+        cameraRef.current = restoreCamera
+        loopMarkDirty()
+        const cache = tileManagerRef.current.cache
+        console.log(
+          `[MapView] stress test complete: max hole ${holeStatsRef.current.maxMs.toFixed(0)}ms, ` +
+          `cache ${cache.size} tiles / ${(cache.totalBytes / (1024 * 1024)).toFixed(1)} of ${tileMemoryCapMb} MB`,
+        )
+        return
+      }
+      cameraRef.current = {
+        x: centreX + Math.sin(t * Math.PI * 6) * width * 0.4,
+        y: centreY + Math.sin(t * Math.PI * 4.5) * height * 0.4,
+        ppm: Math.exp(logMinPpm + ((Math.sin(t * Math.PI * 8) + 1) / 2) * (logMaxPpm - logMinPpm)),
+      }
+      loopMarkDirty()
+      stressTestRef.current = requestAnimationFrame(tick)
+    }
+    stressTestRef.current = requestAnimationFrame(tick)
+  }
+
   return (
     <div
       ref={containerRef}
@@ -290,7 +301,18 @@ export default function MapView({
       <canvas ref={dynamicRef} className="map-view-layer" />
       <canvas ref={labelsRef} className="map-view-layer" />
       <div className="map-view-hud">
-        {showDebugStats && <div ref={debugRef} className="map-view-debug-stats" />}
+        {showDebugStats && (
+          <div className="map-view-debug-stats">
+            <div ref={debugRef} />
+            <button type="button" onClick={runStressTest}>Run tile pipeline stress test</button>
+          </div>
+        )}
+        {workerError && (
+          <div className="map-view-error-banner" role="alert">
+            Tile worker error{workerError.key ? ` (${workerError.key})` : ''}: {workerError.message}
+            <button type="button" onClick={() => setWorkerError(null)}>Dismiss</button>
+          </div>
+        )}
         {children}
       </div>
     </div>

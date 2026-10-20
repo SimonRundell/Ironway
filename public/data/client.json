@@ -8,5 +8,8 @@
   "pauseOnHidden": true,
   "ui": {
     "showDebugPanel": true
+  },
+  "render": {
+    "tileMemoryCapMb": 200
   }
 }
