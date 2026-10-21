@@ -26,5 +26,22 @@
     "minPpmByTier": [12, 6, 1.5, 1.5],
     "seaLaneWidthPx": 1.4,
     "seaLaneDash": [5, 4]
+  },
+  "settlements": {
+    "classColours": { "working": "#8a5a3c", "middle": "#a8683f", "upper": "#6b4a5c" },
+    "abandonedColour": "#5a564e",
+    "featureColours": { "church": "#9c8a6a", "market": "#c9b15a", "mill": "#6b6254", "wharf": "#2f4f5f" },
+    "blobRadiusMilesPerSqrtPop": 0.012,
+    "minBlobRadiusMiles": 0.5,
+    "footprintPaddingFactor": 1.3,
+    "popPerBuildingSlot": 150,
+    "minBuildingSlots": 3,
+    "maxBuildingSlots": 70,
+    "buildingSizeMilesByClass": { "working": 0.09, "middle": 0.12, "upper": 0.16 },
+    "featureSizeMiles": 0.22,
+    "fadeInMs": 1500,
+    "abandonedFadeMs": 2500,
+    "regionMaxPpm": 4,
+    "localMaxPpm": 36
   }
 }

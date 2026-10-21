@@ -1,5 +1,6 @@
 import { drawNetworkLayer } from './network.js'
 import { topDownProjection } from './projection.js'
+import { drawSettlementsLayer } from './settlements.js'
 import { TILE_PIXELS, tileWorldSize } from './tiles.js'
 
 /**
@@ -12,14 +13,16 @@ import { TILE_PIXELS, tileWorldSize } from './tiles.js'
  * tiles themselves real terrain (`render/terrain/sampleTerrain.js`,
  * via `workers/tileWorker.js`) whenever a world was loaded, and T2.06
  * added the network layer (roads, rail, sea lanes) to the overlay
- * canvas, on top of its existing debug grid — this function's own job
- * stays the same either way: blit whatever the tile manager has, real
- * or placeholder, and draw whatever overlay/dynamic/label content a
- * loaded world provides. The flat sea fill below only ever shows
- * through a genuine hole, before any tile (or any cached ancestor) has
- * arrived yet. T2.07 onward add further layers (settlement sprites)
- * one at a time; the function's shape (one pass per canvas layer)
- * stays the same.
+ * canvas, on top of its existing debug grid, and T2.07 added the
+ * settlements layer (region blobs, footprints, procedural buildings)
+ * to the dynamic canvas, ahead of the origin marker — this function's
+ * own job stays the same either way: blit whatever the tile manager
+ * has, real or placeholder, and draw whatever overlay/dynamic/label
+ * content a loaded world provides. The flat sea fill below only ever
+ * shows through a genuine hole, before any tile (or any cached
+ * ancestor) has arrived yet. Later tasks add further layers one at a
+ * time; the function's shape (one pass per canvas layer) stays the
+ * same.
  *
  * @module render/drawPlaceholderWorld
  */
@@ -39,10 +42,13 @@ const HOLE_THRESHOLD_MS = 150
  * @param {Map<string, number>} options.holeSince Tile key to the timestamp it first had nothing to draw. Mutated in place; the caller owns its lifetime.
  * @param {{maxMs: number}} options.holeStats Mutated in place: the largest hole duration seen so far, for the caller's own debug readout.
  * @param {import('../sim/state.js').Link[]} [options.links] PHASES.md T2.06: drawn on the overlay layer when a world has loaded. Omitted (the default, no-world placeholder view) draws no network at all.
- * @param {object} [options.palette] The validated `palette.json` rules, needed for the network layer's styling. Required whenever `links` is given.
+ * @param {object} [options.palette] The validated `palette.json` rules, needed for the network and settlements layers' styling. Required whenever `links` or `settlements` is given.
+ * @param {import('../sim/state.js').Settlement[]} [options.settlements] PHASES.md T2.07: drawn on the dynamic layer when a world has loaded. Omitted draws no settlements at all.
+ * @param {{id: string}[]} [options.classesRules] `classes.json`'s `classes` array, needed for the settlements layer's class-mix colouring. Required whenever `settlements` is given.
+ * @param {Map<number, Map<number, {bornAt: number, removedAt: number|null}>>} [options.settlementLifecycle] Settlement building fade/abandon tracking (DESIGN 9.5), mutated in place; the caller owns its lifetime, the same convention as `holeSince`. Required whenever `settlements` is given.
  * @returns {void}
  */
-export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, tileManager, holeSince, holeStats, links, palette }) {
+export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, tileManager, holeSince, holeStats, links, palette, settlements, classesRules, settlementLifecycle }) {
   const { levelPpm, visible } = tileManager.ensureVisible(camera, viewport, topDownProjection)
   const tileSize = tileWorldSize(levelPpm)
 
@@ -139,6 +145,21 @@ export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, 
   dynamicCtx.save()
   dynamicCtx.setTransform(1, 0, 0, 1, 0, 0)
   dynamicCtx.clearRect(0, 0, canvases.dynamic.width, canvases.dynamic.height)
+
+  if (settlements && classesRules && palette) {
+    drawSettlementsLayer({
+      ctx: dynamicCtx,
+      camera,
+      viewport,
+      projection: topDownProjection,
+      settlements,
+      classesRules,
+      settlementRules: palette.settlements,
+      lifecycleMap: settlementLifecycle,
+      nowMs: timestampMs,
+    })
+  }
+
   const originScreen = topDownProjection.worldToScreen(camera, viewport, { x: 0, y: 0 })
   dynamicCtx.fillStyle = '#ffd966'
   dynamicCtx.beginPath()

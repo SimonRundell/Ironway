@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { fitToIsland, panByScreenDelta, stepInertia, zoomAtPoint, zoomByWheel } from '../render/camera.js'
 import { createStressTestRunner } from '../render/debugStressTest.js'
 import { drawPlaceholderWorld } from '../render/drawPlaceholderWorld.js'
@@ -38,19 +38,20 @@ const INERTIA_STOP_SPEED = 2
 /**
  * @param {object} props
  * @param {{minX: number, minY: number, maxX: number, maxY: number}} [props.bounds] Island bounds, in miles, for the initial fit-to-island and Home key. Defaults to a 100x100 mile placeholder square.
- * @param {{grid: object, landuseEnum: string[], palette: object, links?: import('../sim/state.js').Link[]}} [props.world] PHASES.md T2.04: a fully generated world (its grid, `terrain.json`'s `landuseEnum`, `palette.json`) to render real terrain for. Omitted by default, which keeps T2.02/T2.03's flat placeholder world (every tile worker falls back to its own placeholder renderer). `links` (PHASES.md T2.06) draws the road/rail/sea-lane network on the overlay layer and enables click-to-hit-test when `showDebugStats` is on; omitted, no network is drawn.
+ * @param {{grid: object, landuseEnum: string[], palette: object, links?: import('../sim/state.js').Link[], settlements?: import('../sim/state.js').Settlement[], classesRules?: {id: string}[]}} [props.world] PHASES.md T2.04: a fully generated world (its grid, `terrain.json`'s `landuseEnum`, `palette.json`) to render real terrain for. Omitted by default, which keeps T2.02/T2.03's flat placeholder world (every tile worker falls back to its own placeholder renderer). `links` (PHASES.md T2.06) draws the road/rail/sea-lane network on the overlay layer and enables click-to-hit-test when `showDebugStats` is on; omitted, no network is drawn. `settlements` and `classesRules` (PHASES.md T2.07) draw settlement blobs/footprints/buildings on the dynamic layer; omitted, no settlements are drawn. Settlement objects are read fresh every frame, so mutating them in place (e.g. after `sim/tick.js`'s `runYears()`) and calling the imperative `markDirty()` (see `ref`) picks up the change without a new `world` object.
  * @param {number} [props.tileMemoryCapMb] The tile cache's memory cap (DESIGN 9.4/9.9, `client.json`'s `render.tileMemoryCapMb`). Defaults to that file's own starter value; a real page will eventually pass the loaded value through instead.
  * @param {boolean} [props.showDebugStats] Shows a small renders/frames/cache counter and a tile-pipeline stress-test button, for T2.02/T2.03's own Done-when verification. Not meant to stay on by default once T2.12 builds the real HUD.
  * @param {import('react').ReactNode} [props.children] Rendered in the HUD slot, above the canvases, as plain DOM/React.
+ * @param {import('react').Ref<{markDirty: () => void}>} [ref] Lets a caller force a redraw without touching React state (PHASES.md T2.07's own verification need: advancing the sim mutates `world.settlements` in place, which nothing else would tell the render loop about).
  * @returns {JSX.Element}
  */
-export default function MapView({
+const MapView = forwardRef(function MapView({
   bounds = { minX: -50, minY: -50, maxX: 50, maxY: 50 },
   world,
   tileMemoryCapMb = 200,
   showDebugStats = false,
   children,
-}) {
+}, ref) {
   const containerRef = useRef(null)
   const terrainRef = useRef(null)
   const overlayRef = useRef(null)
@@ -68,6 +69,7 @@ export default function MapView({
   const holeSinceRef = useRef(new Map())
   const holeStatsRef = useRef({ maxMs: 0 })
   const stressTestRef = useRef(null)
+  const settlementLifecycleRef = useRef(new Map())
 
   // Worker errors are rare and exceptional, not a per-frame concern, so
   // unlike camera state this is ordinary React state (DESIGN 9.4's
@@ -118,6 +120,9 @@ export default function MapView({
         holeStats: holeStatsRef.current,
         links: world?.links,
         palette: world?.palette,
+        settlements: world?.settlements,
+        classesRules: world?.classesRules,
+        settlementLifecycle: settlementLifecycleRef.current,
       })
 
       if (debugRef.current) {
@@ -261,6 +266,12 @@ export default function MapView({
     markDirtyRef.current?.()
   }
 
+  // Exposes a redraw trigger to whatever ref the caller passed in (see
+  // this component's own doc comment on `ref`): the one thing nothing
+  // inside this component can know on its own is "a caller mutated
+  // `world.settlements` in place and the canvas needs to catch up".
+  useImperativeHandle(ref, () => ({ markDirty: loopMarkDirty }))
+
   // Debug-only scripted pan and zoom (see render/debugStressTest.js for
   // what it does and why it lives there, not here).
   const runStressTest = createStressTestRunner({
@@ -308,4 +319,6 @@ export default function MapView({
       </div>
     </div>
   )
-}
+})
+
+export default MapView

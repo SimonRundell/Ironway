@@ -394,3 +394,17 @@ table.data-table tbody tr.selected {
   border-radius: var(--radius);
   font-size: 0.85rem;
 }
+
+.map-view-test-page-sim-controls {
+  position: fixed;
+  bottom: var(--space-4);
+  left: var(--space-4);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--colour-surface);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+}
