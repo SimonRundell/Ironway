@@ -75,6 +75,7 @@
  * @property {number} condition 0 to 1.
  * @property {string} owner `public` or a company key.
  * @property {number[][]} path Simplified [x, y] waypoints, in miles.
+ * @property {Record<string, number>} recentFlow Cargo id to tonnes carried last month, from `sim/tick.js`'s `runMonth()`. Cosmetic only (PHASES.md T2.09's traffic visualisation) — not persisted by `toRows()`, reset to `{}` by `fromRows()`/generation, since nothing economic depends on it surviving a save.
  */
 
 /**
@@ -421,6 +422,7 @@ export function fromRows(rows) {
     condition: row.condition,
     owner: row.owner,
     path: row.path,
+    recentFlow: {},
   }))
 
   const economyState = {

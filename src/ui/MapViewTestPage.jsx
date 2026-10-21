@@ -40,7 +40,13 @@ const RUN_YEARS_STEP = 30
  * after `runMoreYears()` mutates that same object's own field —
  * `gameDay` itself is a plain number, which couldn't be "mutated in
  * place" the way the settlement/industry arrays are, so it has to live
- * inside an object that is).
+ * inside an object that is). T2.09 additionally passes `cargoRules`
+ * (`cargo.json`'s own array), which draws carts/trains/ships along
+ * `links` and port activity at settlements — both already present as
+ * props, so this is the one T2.0x task so far that needed no new prop
+ * of its own, only the already-wired `links`' new `recentFlow` field
+ * (written by `sim/tick.js`, exercised by the same "Run 30 years"
+ * button below).
  *
  * @returns {JSX.Element}
  */
@@ -81,6 +87,7 @@ export default function MapViewTestPage() {
             classesRules: rules.classes,
             industries: generated.industries,
             sim: simRef.current,
+            cargoRules: rules.cargo,
           })
         }
       } catch (err) {

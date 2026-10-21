@@ -3,6 +3,7 @@ import { drawNetworkLayer } from './network.js'
 import { topDownProjection } from './projection.js'
 import { drawSettlementsLayer } from './settlements.js'
 import { TILE_PIXELS, tileWorldSize } from './tiles.js'
+import { drawTrafficLayer } from './traffic.js'
 
 /**
  * `MapView`'s own per-frame draw call (DESIGN 9.3's four canvas
@@ -16,9 +17,11 @@ import { TILE_PIXELS, tileWorldSize } from './tiles.js'
  * added the network layer (roads, rail, sea lanes) to the overlay
  * canvas, on top of its existing debug grid, and T2.07 added the
  * settlements layer (region blobs, footprints, procedural buildings)
- * to the dynamic canvas, and T2.08 added the industries layer (one
+ * to the dynamic canvas, T2.08 added the industries layer (one
  * sprite per industry, smoke/wheels/glow by activity) right after it,
- * both ahead of the origin marker — this function's
+ * and T2.09 added the traffic layer (carts/trains/ships moving along
+ * each link, port activity at settlements with live sea flow) after
+ * that, all three ahead of the origin marker — this function's
  * own job stays the same either way: blit whatever the tile manager
  * has, real or placeholder, and draw whatever overlay/dynamic/label
  * content a loaded world provides. The flat sea fill below only ever
@@ -51,9 +54,10 @@ const HOLE_THRESHOLD_MS = 150
  * @param {Map<number, Map<number, {bornAt: number, removedAt: number|null}>>} [options.settlementLifecycle] Settlement building fade/abandon tracking (DESIGN 9.5), mutated in place; the caller owns its lifetime, the same convention as `holeSince`. Required whenever `settlements` is given.
  * @param {import('../sim/state.js').Industry[]} [options.industries] PHASES.md T2.08: drawn on the dynamic layer, after settlements, when a world has loaded. Omitted draws no industries at all.
  * @param {number} [options.gameDay] The sim's current day, for the industries layer's construction/derelict lifecycle look. Required whenever `industries` is given.
+ * @param {{id: string, category: string}[]} [options.cargoRules] `cargo.json`'s `cargo` array, needed for the traffic layer's cargo-category colouring. Required whenever `links` is given alongside `palette.traffic` (traffic is otherwise skipped, same as every other optional layer).
  * @returns {void}
  */
-export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, tileManager, holeSince, holeStats, links, palette, settlements, classesRules, settlementLifecycle, industries, gameDay }) {
+export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, tileManager, holeSince, holeStats, links, palette, settlements, classesRules, settlementLifecycle, industries, gameDay, cargoRules }) {
   const { levelPpm, visible } = tileManager.ensureVisible(camera, viewport, topDownProjection)
   const tileSize = tileWorldSize(levelPpm)
 
@@ -174,6 +178,21 @@ export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, 
       industries,
       industriesRules: palette.industries,
       gameDay: gameDay ?? 0,
+      nowMs: timestampMs,
+    })
+  }
+
+  if (links && settlements && cargoRules && palette) {
+    drawTrafficLayer({
+      ctx: dynamicCtx,
+      camera,
+      viewport,
+      projection: topDownProjection,
+      links,
+      settlements,
+      cargoRules,
+      trafficRules: palette.traffic,
+      settlementRules: palette.settlements,
       nowMs: timestampMs,
     })
   }

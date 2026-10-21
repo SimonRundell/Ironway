@@ -372,6 +372,7 @@ function buildTramwayLinks(grid, mapgenRules, terrainRules, industries, settleme
       condition: 1,
       owner: 'public',
       path: routed.path,
+      recentFlow: {},
     })
   }
 

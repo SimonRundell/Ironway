@@ -66,6 +66,43 @@ function findNegativeStock(gameState) {
   return offenders
 }
 
+describe('T2.09: link.recentFlow', () => {
+  it('is an empty object on every link before the sim has run', () => {
+    const { gameState } = freshGame(SEED)
+    for (const link of gameState.links) {
+      expect(link.recentFlow).toEqual({})
+    }
+  })
+
+  it('populates with cargo tonnes on at least one real link after a year, and only with finite, non-negative values', () => {
+    const { world, gameState } = freshGame(SEED)
+    runYears({ world, gameState, rules, seed: SEED, gameDay: 0 }, 1)
+
+    const linksWithFlow = gameState.links.filter((link) => Object.keys(link.recentFlow).length > 0)
+    expect(linksWithFlow.length).toBeGreaterThan(0)
+
+    for (const link of gameState.links) {
+      for (const tonnes of Object.values(link.recentFlow)) {
+        expect(Number.isFinite(tonnes)).toBe(true)
+        expect(tonnes).toBeGreaterThanOrEqual(0)
+      }
+    }
+  }, 30000)
+
+  it("replaces rather than accumulates across months (a link with nothing moving this month reads {}, not a stale earlier total)", () => {
+    const { world, gameState } = freshGame(SEED)
+    runYears({ world, gameState, rules, seed: SEED, gameDay: 0 }, 1)
+
+    const quietLink = gameState.links.find((link) => Object.keys(link.recentFlow).length === 0)
+    expect(quietLink).toBeDefined()
+    quietLink.recentFlow = { poisoned_sentinel_cargo: 999 }
+
+    runYears({ world, gameState, rules, seed: SEED, gameDay: 360 }, 1)
+
+    expect(quietLink.recentFlow.poisoned_sentinel_cargo).toBeUndefined()
+  }, 30000)
+})
+
 describe('T1.24 fixture: a 10-year run on a generated world', () => {
   it('completes without producing any NaN or Infinity', () => {
     const { world, gameState } = freshGame(SEED)

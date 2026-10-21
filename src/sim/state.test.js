@@ -59,6 +59,7 @@ function buildSyntheticGameState() {
     condition: 1,
     owner: 'public',
     path: [[120.5, 64], [121, 63]],
+    recentFlow: {},
   }]
 
   const economyState = { level: 2, lastChangeDir: 0, lastCheckDay: 0, indicators: { trade: 1.0 } }

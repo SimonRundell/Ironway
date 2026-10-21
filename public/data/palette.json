@@ -80,5 +80,25 @@
     "particleRiseMiles": 0.9,
     "particleLifeMs": 3000,
     "furnaceGlowColour": "#ff6a2f"
+  },
+  "traffic": {
+    "minPpm": 6,
+    "colourByCargoCategory": {
+      "bulk": "#8a7a5c",
+      "livestock": "#9c7a5a",
+      "general": "#a8683f",
+      "perishable": "#6b8a5c",
+      "special": "#6b4a5c",
+      "liquid": "#4a7a8a"
+    },
+    "defaultColour": "#8a8478",
+    "tonnesPerVehicle": 150,
+    "maxVehiclesPerLink": 6,
+    "vehicleBudget": 300,
+    "tripDurationMsByMode": { "road": 9000, "rail": 6000, "sea": 14000 },
+    "cartSizeMiles": 0.18,
+    "trainSizeMiles": 0.3,
+    "shipSizeMiles": 0.35,
+    "portActivitySizeMiles": 0.22
   }
 }

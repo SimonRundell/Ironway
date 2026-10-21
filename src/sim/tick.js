@@ -403,6 +403,28 @@ export function runMonth({ world, gameState, rules, seed, gameDay, caches }) {
     industry.stock = flowedStock.get(nodeKey('i', industry.id)) || industry.stock
   }
 
+  // `link.recentFlow` is cosmetic (PHASES.md T2.09's traffic
+  // visualisation), replaced wholesale every month rather than
+  // accumulated, so a link that carried nothing this month correctly
+  // shows nothing rather than a stale trail from a busier month.
+  // `flowResults` also covers this tick's synthetic
+  // `localIndustryLinks` (string ids like `"local-industry-5"`, not
+  // real `Link` objects); those entries land in `flowByRealLinkId`
+  // too, but the final lookup below is keyed by each real link's own
+  // numeric `id`, so a string key never matches and is silently never read.
+  const flowByRealLinkId = new Map()
+  for (const result of flowResults) {
+    let totals = flowByRealLinkId.get(result.linkId)
+    if (!totals) {
+      totals = {}
+      flowByRealLinkId.set(result.linkId, totals)
+    }
+    totals[result.cargo] = (totals[result.cargo] || 0) + result.moved
+  }
+  for (const link of gameState.links) {
+    link.recentFlow = flowByRealLinkId.get(link.id) || {}
+  }
+
   // --- Step 8: imports and exports at ports. ---
   let monthTradeValue = 0
   let monthTradeBalance = 0

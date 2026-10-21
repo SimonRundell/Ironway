@@ -818,5 +818,6 @@ export function generateLinks(grid, seed, mapgenRules, terrainRules, settlements
     condition: 1,
     owner: 'public',
     path: l.path,
+    recentFlow: {},
   }))
 }
