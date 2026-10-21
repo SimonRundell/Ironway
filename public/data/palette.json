@@ -20,5 +20,11 @@
   "foam": { "colour": "#e8f2ee", "widthMiles": 0.35 },
   "textureNoise": { "strength": 0.05, "scaleMiles": 0.5 },
   "riverWidth": { "milesPerClass": 0.07, "estuaryBoost": 2.2 },
-  "fineLandCover": { "minPpm": 24 }
+  "fineLandCover": { "minPpm": 24 },
+  "network": {
+    "widthPxByTier": [1, 1.4, 1.9, 2.5],
+    "minPpmByTier": [12, 6, 1.5, 1.5],
+    "seaLaneWidthPx": 1.4,
+    "seaLaneDash": [5, 4]
+  }
 }

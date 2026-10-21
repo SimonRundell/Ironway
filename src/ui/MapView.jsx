@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { MAX_PPM, MIN_PPM, fitToIsland, panByScreenDelta, stepInertia, zoomAtPoint, zoomByWheel } from '../render/camera.js'
+import { fitToIsland, panByScreenDelta, stepInertia, zoomAtPoint, zoomByWheel } from '../render/camera.js'
+import { createStressTestRunner } from '../render/debugStressTest.js'
 import { drawPlaceholderWorld } from '../render/drawPlaceholderWorld.js'
+import { findNearestLink } from '../render/network.js'
 import { topDownProjection } from '../render/projection.js'
 import { createRenderLoop, resizeCanvasForDpr } from '../render/renderLoop.js'
 import { createTileManager } from '../render/tileManager.js'
+
+/** @type {number} How close a click has to land to a link, in world miles, to count as a hit (PHASES.md T2.06's own Done-when: "hit testing returns the nearest link under the cursor"). */
+const LINK_HIT_TEST_MAX_MILES = 1.5
 
 /**
  * The Phase 2 canvas stack (PHASES.md T2.02, DESIGN 9.3): four stacked
@@ -29,13 +34,11 @@ const KEY_ZOOM_FACTOR = 1.4
 const INERTIA_FRICTION = 4
 /** @type {number} Screen pixels per second below which inertia stops. */
 const INERTIA_STOP_SPEED = 2
-/** @type {number} Length of the scripted pan-and-zoom stress test (T2.03's own Done-when names a 5-minute scripted run; this is a shorter, interactively-triggered version of the same sweep — see DECISIONS.md). */
-const STRESS_TEST_DURATION_MS = 20000
 
 /**
  * @param {object} props
  * @param {{minX: number, minY: number, maxX: number, maxY: number}} [props.bounds] Island bounds, in miles, for the initial fit-to-island and Home key. Defaults to a 100x100 mile placeholder square.
- * @param {{grid: object, landuseEnum: string[], palette: object}} [props.world] PHASES.md T2.04: a fully generated world (its grid, `terrain.json`'s `landuseEnum`, `palette.json`) to render real terrain for. Omitted by default, which keeps T2.02/T2.03's flat placeholder world (every tile worker falls back to its own placeholder renderer).
+ * @param {{grid: object, landuseEnum: string[], palette: object, links?: import('../sim/state.js').Link[]}} [props.world] PHASES.md T2.04: a fully generated world (its grid, `terrain.json`'s `landuseEnum`, `palette.json`) to render real terrain for. Omitted by default, which keeps T2.02/T2.03's flat placeholder world (every tile worker falls back to its own placeholder renderer). `links` (PHASES.md T2.06) draws the road/rail/sea-lane network on the overlay layer and enables click-to-hit-test when `showDebugStats` is on; omitted, no network is drawn.
  * @param {number} [props.tileMemoryCapMb] The tile cache's memory cap (DESIGN 9.4/9.9, `client.json`'s `render.tileMemoryCapMb`). Defaults to that file's own starter value; a real page will eventually pass the loaded value through instead.
  * @param {boolean} [props.showDebugStats] Shows a small renders/frames/cache counter and a tile-pipeline stress-test button, for T2.02/T2.03's own Done-when verification. Not meant to stay on by default once T2.12 builds the real HUD.
  * @param {import('react').ReactNode} [props.children] Rendered in the HUD slot, above the canvases, as plain DOM/React.
@@ -68,8 +71,11 @@ export default function MapView({
 
   // Worker errors are rare and exceptional, not a per-frame concern, so
   // unlike camera state this is ordinary React state (DESIGN 9.4's
-  // "worker errors surface in the UI").
+  // "worker errors surface in the UI"). The network hit-test result
+  // (debug-only, see onPointerUp) is the same kind of rare, click-driven
+  // event, not a per-frame value, so it is ordinary state too.
   const [workerError, setWorkerError] = useState(null)
+  const [hitLink, setHitLink] = useState(null)
 
   // Counts React renders of this component. Should stop climbing after
   // mount: every interaction below mutates refs and redraws canvases
@@ -110,6 +116,8 @@ export default function MapView({
         tileManager: tileManagerRef.current,
         holeSince: holeSinceRef.current,
         holeStats: holeStatsRef.current,
+        links: world?.links,
+        palette: world?.palette,
       })
 
       if (debugRef.current) {
@@ -170,7 +178,7 @@ export default function MapView({
   function onPointerDown(event) {
     event.currentTarget.setPointerCapture(event.pointerId)
     inertiaRef.current = null
-    dragRef.current = { lastX: event.clientX, lastY: event.clientY, lastTimeMs: performance.now(), velocity: { x: 0, y: 0 } }
+    dragRef.current = { startX: event.clientX, startY: event.clientY, lastX: event.clientX, lastY: event.clientY, lastTimeMs: performance.now(), velocity: { x: 0, y: 0 } }
   }
 
   /** @param {import('react').PointerEvent} event @returns {void} */
@@ -192,11 +200,23 @@ export default function MapView({
   /** @param {import('react').PointerEvent} event @returns {void} */
   function onPointerUp(event) {
     event.currentTarget.releasePointerCapture(event.pointerId)
-    const velocity = dragRef.current?.velocity ?? { x: 0, y: 0 }
+    const drag = dragRef.current
+    const velocity = drag?.velocity ?? { x: 0, y: 0 }
     dragRef.current = null
     if (Math.hypot(velocity.x, velocity.y) > INERTIA_STOP_SPEED) {
       inertiaRef.current = { velocity, lastTimestampMs: performance.now() }
       loopMarkDirty()
+    } else if (drag && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 5) {
+      // A tap/click rather than a drag or flick (PHASES.md T2.06's own
+      // Done-when: "hit testing returns the nearest link under the
+      // cursor"). Debug-only for now — a real selection UI is T2.12's
+      // job — but the hit-testing function itself is exercised here
+      // against real screen coordinates, not just in a unit test.
+      if (world?.links) {
+        const rect = event.currentTarget.getBoundingClientRect()
+        const worldPoint = topDownProjection.screenToWorld(cameraRef.current, viewportRef.current, { x: event.clientX - rect.left, y: event.clientY - rect.top })
+        setHitLink(findNearestLink(world.links, worldPoint, LINK_HIT_TEST_MAX_MILES))
+      }
     }
   }
 
@@ -241,50 +261,11 @@ export default function MapView({
     markDirtyRef.current?.()
   }
 
-  /**
-   * Debug-only scripted pan and zoom (T2.03's own Done-when names a
-   * 5-minute version of this exact sweep; see DECISIONS.md for why
-   * this interactive one runs shorter). Sweeps the camera across the
-   * whole island and through every tile zoom level, so the tile
-   * pipeline's own debug line (cache size, max hole duration) can be
-   * watched settle under sustained churn.
-   *
-   * @returns {void}
-   */
-  function runStressTest() {
-    if (stressTestRef.current || !cameraRef.current) return
-    const startedAt = performance.now()
-    const restoreCamera = cameraRef.current
-    const width = bounds.maxX - bounds.minX
-    const height = bounds.maxY - bounds.minY
-    const centreX = (bounds.minX + bounds.maxX) / 2
-    const centreY = (bounds.minY + bounds.maxY) / 2
-    const logMinPpm = Math.log(MIN_PPM)
-    const logMaxPpm = Math.log(MAX_PPM)
-
-    function tick(now) {
-      const t = (now - startedAt) / STRESS_TEST_DURATION_MS
-      if (t >= 1) {
-        stressTestRef.current = null
-        cameraRef.current = restoreCamera
-        loopMarkDirty()
-        const cache = tileManagerRef.current.cache
-        console.log(
-          `[MapView] stress test complete: max hole ${holeStatsRef.current.maxMs.toFixed(0)}ms, ` +
-          `cache ${cache.size} tiles / ${(cache.totalBytes / (1024 * 1024)).toFixed(1)} of ${tileMemoryCapMb} MB`,
-        )
-        return
-      }
-      cameraRef.current = {
-        x: centreX + Math.sin(t * Math.PI * 6) * width * 0.4,
-        y: centreY + Math.sin(t * Math.PI * 4.5) * height * 0.4,
-        ppm: Math.exp(logMinPpm + ((Math.sin(t * Math.PI * 8) + 1) / 2) * (logMaxPpm - logMinPpm)),
-      }
-      loopMarkDirty()
-      stressTestRef.current = requestAnimationFrame(tick)
-    }
-    stressTestRef.current = requestAnimationFrame(tick)
-  }
+  // Debug-only scripted pan and zoom (see render/debugStressTest.js for
+  // what it does and why it lives there, not here).
+  const runStressTest = createStressTestRunner({
+    cameraRef, stressTestRef, tileManagerRef, holeStatsRef, bounds, tileMemoryCapMb, markDirty: loopMarkDirty,
+  })
 
   return (
     <div
@@ -307,6 +288,13 @@ export default function MapView({
         {showDebugStats && (
           <div className="map-view-debug-stats">
             <div ref={debugRef} />
+            {world?.links && (
+              <div>
+                {hitLink
+                  ? `nearest link: ${hitLink.link.mode} tier ${hitLink.link.tier} (${hitLink.distanceMiles.toFixed(2)}mi away)`
+                  : 'click a link to hit-test it'}
+              </div>
+            )}
             <button type="button" onClick={runStressTest}>Run tile pipeline stress test</button>
           </div>
         )}

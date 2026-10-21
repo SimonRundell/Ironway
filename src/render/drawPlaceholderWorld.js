@@ -1,3 +1,4 @@
+import { drawNetworkLayer } from './network.js'
 import { topDownProjection } from './projection.js'
 import { TILE_PIXELS, tileWorldSize } from './tiles.js'
 
@@ -7,15 +8,18 @@ import { TILE_PIXELS, tileWorldSize } from './tiles.js'
  * of it is a React concern: it is pure canvas drawing against plain
  * `<canvas>` elements, camera and tile-manager values. T2.02 drew a
  * flat placeholder world; T2.03 added real tile drawing (including
- * the "placeholder blurred parent tile" fallback), and T2.04 made the
+ * the "placeholder blurred parent tile" fallback), T2.04 made the
  * tiles themselves real terrain (`render/terrain/sampleTerrain.js`,
- * via `workers/tileWorker.js`) whenever a world was loaded — this
- * function's own job stays the same either way: blit whatever the
- * tile manager has, real or placeholder. The flat sea fill below only
- * ever shows through a genuine hole, before any tile (or any cached
- * ancestor) has arrived yet. T2.05 onward add further layers (the
- * network, settlement sprites) one at a time; the function's shape
- * (one pass per canvas layer) stays the same.
+ * via `workers/tileWorker.js`) whenever a world was loaded, and T2.06
+ * added the network layer (roads, rail, sea lanes) to the overlay
+ * canvas, on top of its existing debug grid — this function's own job
+ * stays the same either way: blit whatever the tile manager has, real
+ * or placeholder, and draw whatever overlay/dynamic/label content a
+ * loaded world provides. The flat sea fill below only ever shows
+ * through a genuine hole, before any tile (or any cached ancestor) has
+ * arrived yet. T2.07 onward add further layers (settlement sprites)
+ * one at a time; the function's shape (one pass per canvas layer)
+ * stays the same.
  *
  * @module render/drawPlaceholderWorld
  */
@@ -34,9 +38,11 @@ const HOLE_THRESHOLD_MS = 150
  * @param {ReturnType<import('./tileManager.js').createTileManager>} options.tileManager
  * @param {Map<string, number>} options.holeSince Tile key to the timestamp it first had nothing to draw. Mutated in place; the caller owns its lifetime.
  * @param {{maxMs: number}} options.holeStats Mutated in place: the largest hole duration seen so far, for the caller's own debug readout.
+ * @param {import('../sim/state.js').Link[]} [options.links] PHASES.md T2.06: drawn on the overlay layer when a world has loaded. Omitted (the default, no-world placeholder view) draws no network at all.
+ * @param {object} [options.palette] The validated `palette.json` rules, needed for the network layer's styling. Required whenever `links` is given.
  * @returns {void}
  */
-export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, tileManager, holeSince, holeStats }) {
+export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, tileManager, holeSince, holeStats, links, palette }) {
   const { levelPpm, visible } = tileManager.ensureVisible(camera, viewport, topDownProjection)
   const tileSize = tileWorldSize(levelPpm)
 
@@ -119,6 +125,10 @@ export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, 
     overlayCtx.lineTo(right.x, right.y)
   }
   overlayCtx.stroke()
+
+  if (links && palette) {
+    drawNetworkLayer({ ctx: overlayCtx, camera, viewport, projection: topDownProjection, links, palette })
+  }
   overlayCtx.restore()
 
   // The origin marker is billboarded (DESIGN 9.2.1, confirmed by the

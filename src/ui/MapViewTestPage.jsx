@@ -18,7 +18,10 @@ const DIFFICULTY = 'normal'
  * one of the five golden seeds): when present, a real world is generated
  * and handed to `MapView` as its `world` prop, so the terrain renderer can
  * be checked against real islands rather than the blank placeholder. With
- * no `seed`, this page behaves exactly as it did in T2.02/T2.03.
+ * no `seed`, this page behaves exactly as it did in T2.02/T2.03. T2.06
+ * additionally passes the world's `links`, which draws the road/rail/sea
+ * network on the overlay layer and enables `MapView`'s click-to-hit-test
+ * debug readout.
  *
  * @returns {JSX.Element}
  */
@@ -34,7 +37,7 @@ export default function MapViewTestPage() {
       try {
         const rules = await loadRulesBrowser()
         const { world: generated } = generateWorld(seed, DIFFICULTY, rules)
-        if (!cancelled) setWorld({ grid: generated.grid, landuseEnum: rules.terrain.landuseEnum, palette: rules.palette })
+        if (!cancelled) setWorld({ grid: generated.grid, landuseEnum: rules.terrain.landuseEnum, palette: rules.palette, links: generated.links })
       } catch (err) {
         if (!cancelled) setError(err.message)
       }
