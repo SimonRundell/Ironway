@@ -43,5 +43,42 @@
     "abandonedFadeMs": 2500,
     "regionMaxPpm": 4,
     "localMaxPpm": 36
+  },
+  "industries": {
+    "minPpm": 4,
+    "spriteCategoryByTypeId": {
+      "coal_mine": "mine", "iron_mine": "mine", "quarry": "mine", "clay_pit": "mine",
+      "forestry_camp": "forestry",
+      "fishery": "fishery",
+      "flour_mill": "watermill", "sawmill": "watermill",
+      "ironworks": "furnace", "steelworks": "furnace",
+      "shipyard": "shipyard",
+      "food_works": "factory", "slaughterhouse": "factory", "brewery": "factory",
+      "brickworks": "factory", "engineering_works": "factory", "textile_mill": "factory",
+      "garment_works": "factory", "tannery": "factory", "goods_works": "factory", "car_plant": "factory"
+    },
+    "colourByTypeId": {
+      "coal_mine": "#3a3a3a", "iron_mine": "#7a5a4a", "quarry": "#8a8478", "clay_pit": "#9c7a5a",
+      "forestry_camp": "#3f6b3a",
+      "fishery": "#4a7a8a",
+      "flour_mill": "#c9b15a", "sawmill": "#8a6a3f",
+      "ironworks": "#6b5a52", "steelworks": "#5a5a5a",
+      "shipyard": "#4a6a7a",
+      "food_works": "#a8683f", "slaughterhouse": "#8a5050", "brewery": "#a8862c",
+      "brickworks": "#9c5a3f", "engineering_works": "#6b6254", "textile_mill": "#5a6a9c",
+      "garment_works": "#7a5a8a", "tannery": "#7a5a3f", "goods_works": "#5a7a6a", "car_plant": "#4a4a6b"
+    },
+    "smokeByCategory": { "mine": true, "forestry": false, "fishery": false, "watermill": false, "furnace": true, "shipyard": true, "factory": true },
+    "derelictColour": "#5a564e",
+    "constructionDays": 180,
+    "derelictFullDays": 720,
+    "idleUtilisation": 0.05,
+    "spriteSizeMiles": 0.5,
+    "maxParticlesPerIndustry": 4,
+    "particleBudget": 400,
+    "particleSizeMiles": 0.07,
+    "particleRiseMiles": 0.9,
+    "particleLifeMs": 3000,
+    "furnaceGlowColour": "#ff6a2f"
   }
 }

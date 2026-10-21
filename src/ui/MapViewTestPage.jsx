@@ -33,7 +33,14 @@ const RUN_YEARS_STEP = 30
  * `gameState.settlements` in place, and that is the exact same array of
  * objects as `generated.settlements` (never copied), so the next redraw
  * picks up every settlement's new `housing`/`pop` without this page
- * needing to touch React state at all.
+ * needing to touch React state at all. T2.08 additionally passes
+ * `industries` (one sprite per industry on the dynamic layer) and `sim`
+ * (the whole `simRef.current` object, so `MapView`'s stale-by-design
+ * mount-time closure can still read `sim.gameDay` fresh every frame
+ * after `runMoreYears()` mutates that same object's own field —
+ * `gameDay` itself is a plain number, which couldn't be "mutated in
+ * place" the way the settlement/industry arrays are, so it has to live
+ * inside an object that is).
  *
  * @returns {JSX.Element}
  */
@@ -72,6 +79,8 @@ export default function MapViewTestPage() {
             links: generated.links,
             settlements: generated.settlements,
             classesRules: rules.classes,
+            industries: generated.industries,
+            sim: simRef.current,
           })
         }
       } catch (err) {
