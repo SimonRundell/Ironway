@@ -34,9 +34,15 @@ function flattenRules(siteRules) {
 }
 
 /**
- * Whether a cell is within `radiusCells` of a river of at least
- * `minWidthClass` (DESIGN 5.6's `river` rule; default radius is 1, so
- * this is a cheap local check rather than a BFS).
+ * Whether a cell is dry riverside land: itself not a river cell, but
+ * within `radiusCells` of one of at least `minWidthClass` (DESIGN
+ * 5.6's `river` rule; default radius is 1, so this is a cheap local
+ * check rather than a BFS). The cell itself is deliberately excluded
+ * even when it meets `minWidthClass` — a river cell *is* the channel,
+ * not the bank, and siting a mill or ironworks there put the building
+ * literally in the river once rendered (T2.09's own river-stroke runs
+ * straight through a river cell's centre, exactly where a building
+ * sited on that cell would be drawn too).
  *
  * @param {object} grid The world grid.
  * @param {number} i A cell index.
@@ -45,7 +51,7 @@ function flattenRules(siteRules) {
  * @returns {boolean}
  */
 function isNearRiver(grid, i, minWidthClass, radiusCells) {
-  if (grid.river[i] >= minWidthClass) return true
+  if (grid.river[i] >= minWidthClass) return false
   const x = i % grid.width
   const y = Math.floor(i / grid.width)
   for (let dy = -radiusCells; dy <= radiusCells; dy++) {

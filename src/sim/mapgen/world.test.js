@@ -8,15 +8,17 @@ const SEEDS = Array.from({ length: 20 }, (_, i) => `ironway-${String(i + 1).padS
 
 /** @type {Record<string, string>} Golden world checksums, committed so an accidental generator change is caught (DESIGN 11). */
 const GOLDEN_CHECKSUMS = {
-  // Regenerated for T2.09: Link objects gained a new recentFlow field
-  // (cosmetic traffic-visualisation state, {} at generation time),
-  // which changes the generic structural checksum even though the
-  // actual generation logic is unchanged.
-  'ironway-001': '0472b4209839ec89',
-  'ironway-002': '6fb8e330da617dc0',
-  'ironway-003': '614fa4dd54619b50',
-  'ironway-004': '92c25b5298810e19',
-  'ironway-005': '1388f660781e1b6b',
+  // Regenerated after fixing isNearRiver() (src/sim/mapgen/industries.js):
+  // river-sited industries (flour mills, sawmills, ironworks, etc.) no
+  // longer land directly on the river channel's own cell, only on dry
+  // riverside land next to it — a genuine placement behaviour change,
+  // not just a schema addition, so industry positions legitimately
+  // differ from the previous golden run.
+  'ironway-001': 'c2d40b29694ba76f',
+  'ironway-002': '8cbed9365abc7975',
+  'ironway-003': 'd0cbcae5c1caaf81',
+  'ironway-004': 'a9fb071dac55a275',
+  'ironway-005': 'e2bf3f39cf7c5876',
 }
 
 let rules

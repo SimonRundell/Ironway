@@ -240,4 +240,30 @@ describe('evaluateSiteRule', () => {
     const grid = createWorldGrid(1, 1, 2)
     expect(evaluateSiteRule('near:clay', 0, { grid })).toBe(true)
   })
+
+  it('river matches riverside land, never the river cell itself', () => {
+    // A 3x1 strip: cell 1 is the river channel, cells 0 and 2 are its dry banks.
+    const grid = createWorldGrid(3, 1, 2)
+    grid.river[1] = 2
+    const ctx = { grid, params: { riverMinWidthClass: 2, riverSitingRadiusCells: 1 } }
+    expect(evaluateSiteRule('river', 1, ctx)).toBe(false)
+    expect(evaluateSiteRule('river', 0, ctx)).toBe(true)
+    expect(evaluateSiteRule('river', 2, ctx)).toBe(true)
+  })
+
+  it('river does not match land outside the search radius', () => {
+    const grid = createWorldGrid(5, 1, 2)
+    grid.river[2] = 2
+    const ctx = { grid, params: { riverMinWidthClass: 2, riverSitingRadiusCells: 1 } }
+    expect(evaluateSiteRule('river', 0, ctx)).toBe(false)
+    expect(evaluateSiteRule('river', 4, ctx)).toBe(false)
+  })
+
+  it('river respects minWidthClass: a stream below the threshold does not count as a river cell or a riverside one', () => {
+    const grid = createWorldGrid(3, 1, 2)
+    grid.river[1] = 1 // below riverMinWidthClass
+    const ctx = { grid, params: { riverMinWidthClass: 2, riverSitingRadiusCells: 1 } }
+    expect(evaluateSiteRule('river', 1, ctx)).toBe(false)
+    expect(evaluateSiteRule('river', 0, ctx)).toBe(false)
+  })
 })
