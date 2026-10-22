@@ -408,3 +408,112 @@ table.data-table tbody tr.selected {
   border-radius: var(--radius);
   font-size: 0.85rem;
 }
+
+/* ui/PlayPage.jsx HUD (PHASES.md T2.12, DESIGN 9.8): small floating panels positioned directly over MapView's own HUD slot. `.hud-top-left`/`.hud-top-right` group panels of varying, content-dependent height into one flex column each, so one panel growing taller (e.g. the overlay toggle gaining a cargo picker) never overlaps whatever is stacked below it — a fixed pixel offset between independently-positioned panels could not guarantee that. */
+.hud-top-left,
+.hud-top-right {
+  position: absolute;
+  top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+
+.hud-top-left { left: var(--space-2); align-items: flex-start; }
+.hud-top-right { right: var(--space-2); align-items: flex-end; }
+.hud-top-left > *, .hud-top-right > * { pointer-events: auto; }
+
+.hud-panel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: color-mix(in srgb, var(--colour-surface) 92%, transparent);
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.hud-economy-badge { flex-direction: column; align-items: center; gap: var(--space-1); }
+.hud-search { flex-direction: column; align-items: stretch; width: 16rem; }
+.hud-minimap {
+  position: absolute;
+  bottom: var(--space-2);
+  right: var(--space-2);
+  border-radius: var(--radius);
+  border: 1px solid var(--colour-border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.hud-selection-panel {
+  position: absolute;
+  top: 6rem; /* Clears the fixed .hud-top-left stack (date/speed bar + economy badge) below it, rather than trying to track its exact height. */
+  left: var(--space-2);
+  bottom: var(--space-2);
+  width: 22rem;
+  max-width: calc(100vw - var(--space-4));
+  flex-direction: column;
+  align-items: stretch;
+  overflow-y: auto;
+}
+
+.hud-selection-close {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  color: var(--colour-ink-soft);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 var(--space-1);
+}
+
+.economy-steps { display: flex; gap: 2px; }
+.economy-step { width: 1rem; height: 0.4rem; background: var(--colour-border); border-radius: 2px; }
+.economy-step.filled { background: var(--colour-accent); }
+
+.hud-search-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--colour-surface);
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius);
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.hud-search-results li button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  background: none;
+  border: none;
+  color: var(--colour-ink);
+  cursor: pointer;
+}
+
+.hud-search-results li button:hover { background: color-mix(in srgb, var(--colour-accent) 10%, transparent); }
+
+.play-page { position: fixed; inset: 0; }
+
+.hud-banner {
+  position: absolute;
+  bottom: var(--space-2);
+  left: var(--space-2);
+  max-width: 24rem;
+}
+
+.hud-inspector-link {
+  position: absolute;
+  bottom: var(--space-2);
+  right: calc(230px + var(--space-3));
+  text-decoration: none;
+  color: var(--colour-ink);
+  font-size: 0.85rem;
+}

@@ -116,5 +116,19 @@
     "fadeRangePpmFactor": 1.5,
     "minPpmByKind": { "capital": 1.5, "city": 1.5, "town": 4, "village": 12, "hamlet": 24 },
     "industriesMinPpm": 12
+  },
+  "overlays": {
+    "heatRamp": ["#2f4f5f", "#c9b15a", "#a8352f"],
+    "ringRadiusMinMiles": 0.6,
+    "ringRadiusMaxMiles": 2.5,
+    "ringAlpha": 0.8,
+    "ringStrokeColour": "#1a1714",
+    "flowMinWidthPx": 1.5,
+    "flowMaxWidthPx": 7,
+    "flowAlpha": 0.85,
+    "resourceColours": { "coal": "#1f1c18", "iron": "#7a5a4a", "stone": "#8a8478", "clay": "#9c7a5a" },
+    "suitabilityBuildableColour": "#6fae55",
+    "suitabilityUnbuildableColour": "#6b6254",
+    "cellAlpha": 0.4
   }
 }

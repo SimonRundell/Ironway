@@ -7,8 +7,10 @@ import { generateWorldInWorker } from '../sim/generateWorldInWorker.js'
 /**
  * Saves (PHASES.md T1.26): list, create a new island with a seed and
  * difficulty, delete. Loading a save, and everything about actually
- * running one, lives in the Inspector (`ui/InspectorPage.jsx`) from
- * here on — this page only ever navigates there.
+ * playing one, lives in `ui/PlayPage.jsx` (PHASES.md T2.12) from here
+ * on; the Phase 1 inspector (`ui/InspectorPage.jsx`) remains reachable
+ * as a secondary link per save, for its table-based developer view onto
+ * the exact same data.
  *
  * @module ui/SavesPage
  */
@@ -53,8 +55,8 @@ export default function SavesPage() {
 
   /**
    * Generates a new world in the worker, creates a save from it, then
-   * jumps straight into the Inspector — there's no separate "active
-   * save" state to track here any more.
+   * jumps straight into the real gameplay view — there's no separate
+   * "active save" state to track here any more.
    *
    * @param {import('react').FormEvent<HTMLFormElement>} event Form submit event.
    * @returns {Promise<void>}
@@ -69,7 +71,7 @@ export default function SavesPage() {
       const result = await generateWorldInWorker(seed, difficultyId, setProgressStep)
       setProgressStep('saving')
       const created = await savesApi.create(result.meta, result.world, result.blobBase64)
-      navigate(`/island/${created.id}`)
+      navigate(`/play/${created.id}`)
     } catch (err) {
       setStatus(`Create failed: ${err.response?.data?.error?.message ?? err.message}`)
       setGenerating(false)
@@ -140,7 +142,8 @@ export default function SavesPage() {
                 {save.name} — day {save.gameDay}, v{save.version}, {save.population.toLocaleString()} people
               </span>
               <span>
-                <button type="button" onClick={() => navigate(`/island/${save.id}`)}>Load</button>
+                <button type="button" onClick={() => navigate(`/play/${save.id}`)}>Play</button>
+                <button type="button" onClick={() => navigate(`/island/${save.id}`)}>Inspector</button>
                 <button type="button" onClick={() => handleDelete(save.id)}>Delete</button>
               </span>
             </li>

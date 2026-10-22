@@ -2,13 +2,17 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { fitToIsland, panByScreenDelta, stepInertia, zoomAtPoint, zoomByWheel } from '../render/camera.js'
 import { createStressTestRunner } from '../render/debugStressTest.js'
 import { drawPlaceholderWorld } from '../render/drawPlaceholderWorld.js'
+import { createMapViewHandle, stepJumpAnimation } from '../render/mapViewHandle.js'
 import { findNearestLink } from '../render/network.js'
 import { topDownProjection } from '../render/projection.js'
 import { createRenderLoop, resizeCanvasForDpr } from '../render/renderLoop.js'
+import { findNearestEntity } from '../render/selection.js'
 import { createTileManager } from '../render/tileManager.js'
 
 /** @type {number} How close a click has to land to a link, in world miles, to count as a hit (PHASES.md T2.06's own Done-when: "hit testing returns the nearest link under the cursor"). */
 const LINK_HIT_TEST_MAX_MILES = 1.5
+/** @type {number} Duration of the eased camera transition `jumpTo()` plays (PHASES.md T2.12's search-and-jump, DESIGN 9.2's "short eased animation"). */
+const JUMP_DURATION_MS = 600
 
 /**
  * The Phase 2 canvas stack (PHASES.md T2.02, DESIGN 9.3): four stacked
@@ -38,11 +42,12 @@ const INERTIA_STOP_SPEED = 2
 /**
  * @param {object} props
  * @param {{minX: number, minY: number, maxX: number, maxY: number}} [props.bounds] Island bounds, in miles, for the initial fit-to-island and Home key. Defaults to a 100x100 mile placeholder square.
- * @param {{grid: object, landuseEnum: string[], palette: object, links?: import('../sim/state.js').Link[], settlements?: import('../sim/state.js').Settlement[], classesRules?: {id: string}[], industries?: import('../sim/state.js').Industry[], sim?: {gameDay: number}, cargoRules?: {id: string, category: string}[]}} [props.world] PHASES.md T2.04: a fully generated world (its grid, `terrain.json`'s `landuseEnum`, `palette.json`) to render real terrain for. Omitted by default, which keeps T2.02/T2.03's flat placeholder world (every tile worker falls back to its own placeholder renderer). `links` (PHASES.md T2.06) draws the road/rail/sea-lane network on the overlay layer and enables click-to-hit-test when `showDebugStats` is on; omitted, no network is drawn. `settlements` and `classesRules` (PHASES.md T2.07) draw settlement blobs/footprints/buildings on the dynamic layer; omitted, no settlements are drawn. Settlement, industry and link objects are read fresh every frame, so mutating them in place (e.g. after `sim/tick.js`'s `runYears()`) and calling the imperative `markDirty()` (see `ref`) picks up the change without a new `world` object. `industries` (PHASES.md T2.08) draws one sprite per industry on the dynamic layer, after settlements; `sim.gameDay` (a small mutable object, not a plain number, for the same in-place-mutation reason as the settlement/industry/link data) drives its construction/derelict lifecycle look — both required together, since the look is meaningless without a current day to measure against. `cargoRules` (PHASES.md T2.09) draws carts/trains/ships moving along `links` (density and colour from each link's own `recentFlow`) plus port activity at settlements with live sea flow, after industries; requires `links`, `settlements` and `palette.traffic` alongside it. T2.10 (DESIGN 9.7) draws haloed, decluttered settlement and industry name labels on the labels layer; it needs no field of its own, since `settlements`/`industries`/`palette` were already threaded through for T2.07/T2.08.
+ * @param {{grid: object, landuseEnum: string[], palette: object, links?: import('../sim/state.js').Link[], settlements?: import('../sim/state.js').Settlement[], classesRules?: {id: string}[], industries?: import('../sim/state.js').Industry[], sim?: {gameDay: number}, cargoRules?: {id: string, category: string}[], rules?: object, overlay?: {mode: string, cargoId: string|null}, classIdByIndex?: Map<number, string>, startYear?: number}} [props.world] PHASES.md T2.04: a fully generated world (its grid, `terrain.json`'s `landuseEnum`, `palette.json`) to render real terrain for. Omitted by default, which keeps T2.02/T2.03's flat placeholder world (every tile worker falls back to its own placeholder renderer). `links` (PHASES.md T2.06) draws the road/rail/sea-lane network on the overlay layer and enables click-to-hit-test when `showDebugStats` is on; omitted, no network is drawn. `settlements` and `classesRules` (PHASES.md T2.07) draw settlement blobs/footprints/buildings on the dynamic layer; omitted, no settlements are drawn. Settlement, industry and link objects are read fresh every frame, so mutating them in place (e.g. after `sim/tick.js`'s `runYears()`) and calling the imperative `markDirty()` (see `ref`) picks up the change without a new `world` object. `industries` (PHASES.md T2.08) draws one sprite per industry on the dynamic layer, after settlements; `sim.gameDay` (a small mutable object, not a plain number, for the same in-place-mutation reason as the settlement/industry/link data) drives its construction/derelict lifecycle look — both required together, since the look is meaningless without a current day to measure against. `cargoRules` (PHASES.md T2.09) draws carts/trains/ships moving along `links` (density and colour from each link's own `recentFlow`) plus port activity at settlements with live sea flow, after industries; requires `links`, `settlements` and `palette.traffic` alongside it. T2.10 (DESIGN 9.7) draws haloed, decluttered settlement and industry name labels on the labels layer; it needs no field of its own, since `settlements`/`industries`/`palette` were already threaded through for T2.07/T2.08. T2.12 adds `rules` (the full validated bundle), `overlay` (a small mutable object, the same in-place-mutation convention as `sim`, so a HUD toggle can change `overlay.mode`/`overlay.cargoId` and call `markDirty()` without a new `world` object), `classIdByIndex` and `startYear` — all four together drive the heat-overlay layer (`render/overlays.js`); omitted (or `overlay.mode === 'none'`), no overlay is drawn.
  * @param {number} [props.tileMemoryCapMb] The tile cache's memory cap (DESIGN 9.4/9.9, `client.json`'s `render.tileMemoryCapMb`). Defaults to that file's own starter value; a real page will eventually pass the loaded value through instead.
  * @param {boolean} [props.showDebugStats] Shows a small renders/frames/cache counter and a tile-pipeline stress-test button, for T2.02/T2.03's own Done-when verification. Not meant to stay on by default once T2.12 builds the real HUD.
+ * @param {(selection: {type: 'settlement'|'industry'|'link', id: number}) => void} [props.onSelect] PHASES.md T2.12: called on a tap/click (not a drag or flick) that lands on a settlement, industry or link, whichever is nearest (`render/selection.js`). Omitted, clicks are still hit-tested for the debug link readout (see `showDebugStats`) but nothing else happens.
  * @param {import('react').ReactNode} [props.children] Rendered in the HUD slot, above the canvases, as plain DOM/React.
- * @param {import('react').Ref<{markDirty: () => void}>} [ref] Lets a caller force a redraw without touching React state (PHASES.md T2.07's own verification need: advancing the sim mutates `world.settlements` in place, which nothing else would tell the render loop about).
+ * @param {import('react').Ref<{markDirty: () => void, jumpTo: (worldPoint: {x: number, y: number}, ppm?: number) => void, setCamera: (camera: import('../render/projection.js').Camera) => void, getCamera: () => import('../render/projection.js').Camera, getViewport: () => import('../render/projection.js').Viewport}>} [ref] Lets a caller force a redraw without touching React state (PHASES.md T2.07's own verification need: advancing the sim mutates `world.settlements` in place, which nothing else would tell the render loop about), and (T2.12) drive the camera from outside — `jumpTo()` for the search box's eased pan/zoom, `setCamera`/`getCamera`/`getViewport` for the minimap's drag-to-pan and its own viewport-rectangle redraw loop.
  * @returns {JSX.Element}
  */
 const MapView = forwardRef(function MapView({
@@ -50,6 +55,7 @@ const MapView = forwardRef(function MapView({
   world,
   tileMemoryCapMb = 200,
   showDebugStats = false,
+  onSelect,
   children,
 }, ref) {
   const containerRef = useRef(null)
@@ -70,6 +76,7 @@ const MapView = forwardRef(function MapView({
   const holeStatsRef = useRef({ maxMs: 0 })
   const stressTestRef = useRef(null)
   const settlementLifecycleRef = useRef(new Map())
+  const jumpAnimRef = useRef(null)
 
   // Worker errors are rare and exceptional, not a per-frame concern, so
   // unlike camera state this is ordinary React state (DESIGN 9.4's
@@ -96,7 +103,9 @@ const MapView = forwardRef(function MapView({
 
     /** @param {number} timestampMs @returns {void} */
     function draw(timestampMs) {
-      if (inertiaRef.current) {
+      if (jumpAnimRef.current) {
+        stepJumpAnimation({ jumpAnimRef, cameraRef, timestampMs, markDirty: () => loop.markDirty() })
+      } else if (inertiaRef.current) {
         const dt = Math.min(0.05, (timestampMs - inertiaRef.current.lastTimestampMs) / 1000)
         inertiaRef.current.lastTimestampMs = timestampMs
         const result = stepInertia(cameraRef.current, viewportRef.current, inertiaRef.current.velocity, dt, topDownProjection, INERTIA_FRICTION)
@@ -126,6 +135,13 @@ const MapView = forwardRef(function MapView({
         industries: world?.industries,
         gameDay: world?.sim?.gameDay,
         cargoRules: world?.cargoRules,
+        grid: world?.grid,
+        gameState: world ? { settlements: world.settlements, industries: world.industries, links: world.links, economyState: world.economyState } : undefined,
+        rules: world?.rules,
+        overlayMode: world?.overlay?.mode,
+        overlayCargoId: world?.overlay?.cargoId,
+        classIdByIndex: world?.classIdByIndex,
+        startYear: world?.startYear,
       })
 
       if (debugRef.current) {
@@ -217,13 +233,17 @@ const MapView = forwardRef(function MapView({
     } else if (drag && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 5) {
       // A tap/click rather than a drag or flick (PHASES.md T2.06's own
       // Done-when: "hit testing returns the nearest link under the
-      // cursor"). Debug-only for now — a real selection UI is T2.12's
-      // job — but the hit-testing function itself is exercised here
-      // against real screen coordinates, not just in a unit test.
+      // cursor"; PHASES.md T2.12 extends this to settlements and
+      // industries via `onSelect`, for the real selection panel).
+      const rect = event.currentTarget.getBoundingClientRect()
+      const worldPoint = topDownProjection.screenToWorld(cameraRef.current, viewportRef.current, { x: event.clientX - rect.left, y: event.clientY - rect.top })
+
       if (world?.links) {
-        const rect = event.currentTarget.getBoundingClientRect()
-        const worldPoint = topDownProjection.screenToWorld(cameraRef.current, viewportRef.current, { x: event.clientX - rect.left, y: event.clientY - rect.top })
         setHitLink(findNearestLink(world.links, worldPoint, LINK_HIT_TEST_MAX_MILES))
+      }
+      if (onSelect) {
+        const hit = findNearestEntity({ settlements: world?.settlements, industries: world?.industries, links: world?.links, worldPoint })
+        if (hit) onSelect(hit)
       }
     }
   }
@@ -273,7 +293,15 @@ const MapView = forwardRef(function MapView({
   // this component's own doc comment on `ref`): the one thing nothing
   // inside this component can know on its own is "a caller mutated
   // `world.settlements` in place and the canvas needs to catch up".
-  useImperativeHandle(ref, () => ({ markDirty: loopMarkDirty }))
+  // T2.12 adds `jumpTo`/`setCamera`/`getCamera`/`getViewport` for the
+  // search box and minimap, which both need to drive or read the
+  // camera from outside this component — the same reasoning as
+  // `markDirty` itself: camera state lives in a ref specifically so
+  // panning/zooming never triggers a React re-render, so nothing
+  // outside can reach it any other way.
+  useImperativeHandle(ref, () => createMapViewHandle({
+    cameraRef, jumpAnimRef, viewportRef, markDirty: loopMarkDirty, jumpDurationMs: JUMP_DURATION_MS,
+  }))
 
   // Debug-only scripted pan and zoom (see render/debugStressTest.js for
   // what it does and why it lives there, not here).

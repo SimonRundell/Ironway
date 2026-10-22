@@ -1,6 +1,7 @@
 import { drawIndustriesLayer } from './industries.js'
 import { drawLabelsLayer } from './labels.js'
 import { drawNetworkLayer } from './network.js'
+import { drawOverlayLayer } from './overlays.js'
 import { topDownProjection } from './projection.js'
 import { drawSettlementsLayer } from './settlements.js'
 import { TILE_PIXELS, tileWorldSize } from './tiles.js'
@@ -22,9 +23,11 @@ import { drawTrafficLayer } from './traffic.js'
  * sprite per industry, smoke/wheels/glow by activity) right after it,
  * T2.09 added the traffic layer (carts/trains/ships moving along each
  * link, port activity at settlements with live sea flow) after that,
- * all three ahead of the origin marker, and T2.10 added settlement and
+ * all three ahead of the origin marker, T2.10 added settlement and
  * industry name labels to the labels canvas, after its existing debug
- * origin text — this function's
+ * origin text, and T2.12 added the heat-overlay layer (prices, class
+ * mix, confidence, employment, flows, resources, suitability) to the
+ * overlay canvas, after the network — this function's
  * own job stays the same either way: blit whatever the tile manager
  * has, real or placeholder, and draw whatever overlay/dynamic/label
  * content a loaded world provides. The flat sea fill below only ever
@@ -58,9 +61,16 @@ const HOLE_THRESHOLD_MS = 150
  * @param {import('../sim/state.js').Industry[]} [options.industries] PHASES.md T2.08: drawn on the dynamic layer, after settlements, when a world has loaded. Omitted draws no industries at all.
  * @param {number} [options.gameDay] The sim's current day, for the industries layer's construction/derelict lifecycle look. Required whenever `industries` is given.
  * @param {{id: string, category: string}[]} [options.cargoRules] `cargo.json`'s `cargo` array, needed for the traffic layer's cargo-category colouring. Required whenever `links` is given alongside `palette.traffic` (traffic is otherwise skipped, same as every other optional layer).
+ * @param {object} [options.grid] PHASES.md T2.12: `World.grid`, needed for the `'resources'`/`'suitability'` heat overlays. Required whenever `overlayMode` is one of those.
+ * @param {import('../sim/state.js').GameState} [options.gameState] T2.12: needed by every heat overlay except the grid-level ones. Required whenever `overlayMode` isn't `'none'`.
+ * @param {object} [options.rules] T2.12: the full validated rules bundle (not just `palette`), since overlays cross economy/classes/cargo/terrain data no other layer needs together. Required whenever `overlayMode` isn't `'none'`.
+ * @param {string} [options.overlayMode] T2.12: one of `render/overlays.js`'s `OVERLAY_MODES`. Omitted (or `'none'`) draws no overlay at all.
+ * @param {string} [options.overlayCargoId] T2.12: the selected cargo when `overlayMode === 'prices'`.
+ * @param {Map<number, string>} [options.classIdByIndex] T2.12: required when `overlayMode` is `'prices'` or `'classMix'`.
+ * @param {number} [options.startYear] T2.12: the save's calendar start year, required when `overlayMode === 'prices'`.
  * @returns {void}
  */
-export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, tileManager, holeSince, holeStats, links, palette, settlements, classesRules, settlementLifecycle, industries, gameDay, cargoRules }) {
+export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, tileManager, holeSince, holeStats, links, palette, settlements, classesRules, settlementLifecycle, industries, gameDay, cargoRules, grid, gameState, rules, overlayMode, overlayCargoId, classIdByIndex, startYear }) {
   const { levelPpm, visible } = tileManager.ensureVisible(camera, viewport, topDownProjection)
   const tileSize = tileWorldSize(levelPpm)
 
@@ -146,6 +156,23 @@ export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, 
 
   if (links && palette) {
     drawNetworkLayer({ ctx: overlayCtx, camera, viewport, projection: topDownProjection, links, palette })
+  }
+
+  if (overlayMode && overlayMode !== 'none' && gameState && rules) {
+    drawOverlayLayer({
+      ctx: overlayCtx,
+      camera,
+      viewport,
+      projection: topDownProjection,
+      mode: overlayMode,
+      grid,
+      gameState,
+      rules,
+      cargoId: overlayCargoId,
+      classIdByIndex,
+      gameDay,
+      startYear,
+    })
   }
   overlayCtx.restore()
 

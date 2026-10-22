@@ -4,6 +4,7 @@ import LoginPage from './ui/LoginPage.jsx'
 import RegisterPage from './ui/RegisterPage.jsx'
 import SavesPage from './ui/SavesPage.jsx'
 import InspectorPage from './ui/InspectorPage.jsx'
+import PlayPage from './ui/PlayPage.jsx'
 import MapViewTestPage from './ui/MapViewTestPage.jsx'
 
 /**
@@ -53,6 +54,14 @@ export default function App() {
         element={
           <RequireAuth>
             <InspectorPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/play/:saveId"
+        element={
+          <RequireAuth>
+            <PlayPage />
           </RequireAuth>
         }
       />
