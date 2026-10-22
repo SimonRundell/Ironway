@@ -12,8 +12,10 @@ import HistoryChart from './inspector/HistoryChart.jsx'
  * The Phase 1 inspector (PHASES.md T1.26): date and speed controls,
  * island summary and economy level, tables for settlements,
  * industries and links, a selected-settlement panel, an events log,
- * and debug actions. Runs the sim in the main thread (DESIGN 4.2: a
- * Web Worker is a Phase 2 change, not needed yet).
+ * and debug actions. The sim itself runs in `workers/simWorker.js`
+ * (PHASES.md T2.11, DESIGN 4.2); this page only ever reads
+ * `useGameSession()`'s read-only mirror and sends it commands
+ * (speed, debug actions), never touches `gameState` directly.
  *
  * @module ui/InspectorPage
  */
@@ -46,7 +48,7 @@ export default function InspectorPage() {
     )
   }
 
-  const { world, gameState, rules, caches, gameDay, speed, setSpeed, conflict, dismissConflict, saveNow, selectedSettlementId, selectSettlement, forceClosure, addStock } = session
+  const { world, gameState, rules, caches, gameDay, speed, setSpeed, conflict, dismissConflict, workerCrashed, recover, errorMessage, saveNow, selectedSettlementId, selectSettlement, forceClosure, addStock } = session
   const level = rules.economy.levels[gameState.economyState.level]
   const latestHistory = gameState.historyMonthly[gameState.historyMonthly.length - 1]
   const selectedSettlement = gameState.settlements.find((s) => s.id === selectedSettlementId) ?? null
@@ -73,6 +75,13 @@ export default function InspectorPage() {
           <p>This save has changed elsewhere (maybe another tab). Reload to continue.</p>
           <button type="button" onClick={() => window.location.reload()}>Reload</button>
           <button type="button" onClick={dismissConflict}>Dismiss</button>
+        </div>
+      )}
+
+      {workerCrashed && (
+        <div className="card banner-warning">
+          <p>The simulation stopped unexpectedly ({errorMessage}). Anything since the last autosave is lost.</p>
+          <button type="button" onClick={recover}>Reload from last save</button>
         </div>
       )}
 
