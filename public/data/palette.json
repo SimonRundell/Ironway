@@ -100,5 +100,21 @@
     "trainSizeMiles": 0.3,
     "shipSizeMiles": 0.35,
     "portActivitySizeMiles": 0.22
+  },
+  "labels": {
+    "textColour": "#fff8ee",
+    "haloColour": "#1a1714",
+    "haloWidthPx": 3,
+    "baseFontSizePx": 13,
+    "refPpm": 12,
+    "logScaleRate": 0.08,
+    "minFontScale": 0.85,
+    "maxFontScale": 1.25,
+    "charWidthFactor": 0.56,
+    "anchorOffsetPx": 10,
+    "cellSizePx": 60,
+    "fadeRangePpmFactor": 1.5,
+    "minPpmByKind": { "capital": 1.5, "city": 1.5, "town": 4, "village": 12, "hamlet": 24 },
+    "industriesMinPpm": 12
   }
 }

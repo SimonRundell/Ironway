@@ -1,4 +1,5 @@
 import { drawIndustriesLayer } from './industries.js'
+import { drawLabelsLayer } from './labels.js'
 import { drawNetworkLayer } from './network.js'
 import { topDownProjection } from './projection.js'
 import { drawSettlementsLayer } from './settlements.js'
@@ -19,9 +20,11 @@ import { drawTrafficLayer } from './traffic.js'
  * settlements layer (region blobs, footprints, procedural buildings)
  * to the dynamic canvas, T2.08 added the industries layer (one
  * sprite per industry, smoke/wheels/glow by activity) right after it,
- * and T2.09 added the traffic layer (carts/trains/ships moving along
- * each link, port activity at settlements with live sea flow) after
- * that, all three ahead of the origin marker — this function's
+ * T2.09 added the traffic layer (carts/trains/ships moving along each
+ * link, port activity at settlements with live sea flow) after that,
+ * all three ahead of the origin marker, and T2.10 added settlement and
+ * industry name labels to the labels canvas, after its existing debug
+ * origin text — this function's
  * own job stays the same either way: blit whatever the tile manager
  * has, real or placeholder, and draw whatever overlay/dynamic/label
  * content a loaded world provides. The flat sea fill below only ever
@@ -211,5 +214,17 @@ export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, 
   labelsCtx.fillStyle = '#fff8ee'
   labelsCtx.font = '12px sans-serif'
   labelsCtx.fillText('Origin (0, 0)', originScreen.x + 10, originScreen.y + 4)
+
+  if (settlements && palette) {
+    drawLabelsLayer({
+      ctx: labelsCtx,
+      camera,
+      viewport,
+      projection: topDownProjection,
+      settlements,
+      industries,
+      rules: palette.labels,
+    })
+  }
   labelsCtx.restore()
 }
