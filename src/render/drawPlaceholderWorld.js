@@ -212,6 +212,8 @@ export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, 
       lifecycleMap: settlementLifecycle,
       nowMs: timestampMs,
       reducedMotion,
+      grid,
+      riverMinWidthClass: rules?.mapgen?.industries?.riverMinWidthClass,
     })
   }
 

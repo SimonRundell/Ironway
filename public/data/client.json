@@ -10,6 +10,6 @@
     "showDebugPanel": true
   },
   "render": {
-    "tileMemoryCapMb": 200
+    "tileMemoryCapMb": 400
   }
 }

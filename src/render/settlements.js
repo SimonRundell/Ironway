@@ -278,6 +278,78 @@ const FOOTPRINT_VERTEX_COUNT = 10
 /** @type {number} Number of street chords drawn through a footprint (Area/Local bands). */
 const STREET_COUNT = 3
 
+/** @type {number} How many times `dryRadiusFraction()` halves a building's radius before giving up and accepting wherever it landed. */
+const WATER_AVOIDANCE_MAX_ATTEMPTS = 6
+/** @type {number} Shrink factor applied to the radius fraction on each `dryRadiusFraction()` retry. */
+const WATER_AVOIDANCE_SHRINK_FACTOR = 0.6
+
+/**
+ * Whether a world position falls on open water (sea or lake) or a
+ * river channel. Deliberately only these two checks, not the full
+ * `sim/mapgen/settlements.js` `computeBuildableMask()` (rock, main
+ * landmass) — a building rendered on rock or a cut-off islet is merely
+ * implausible, nothing a human eye reads as wrong the way a building
+ * floating on visibly blue water does, so this stays a small, local,
+ * render-only check rather than importing the mapgen module's full rule.
+ * Off the edge of the grid counts as water too (the safe default: a
+ * settlement near the grid boundary could otherwise have a building
+ * rendered off the generated world entirely).
+ *
+ * @param {object} grid The world grid (`water`, `river`, `width`, `height`, `cellMiles`).
+ * @param {number} worldX
+ * @param {number} worldY
+ * @param {number} riverMinWidthClass `mapgen.json`'s `industries.riverMinWidthClass` — the same threshold `sim/mapgen/settlements.js`'s `computeBuildableMask()` now uses.
+ * @returns {boolean}
+ */
+export function isWaterAt(grid, worldX, worldY, riverMinWidthClass) {
+  const x = Math.floor(worldX / grid.cellMiles)
+  const y = Math.floor(worldY / grid.cellMiles)
+  if (x < 0 || y < 0 || x >= grid.width || y >= grid.height) return true
+  const i = y * grid.width + x
+  return grid.water[i] !== 0 || grid.river[i] >= riverMinWidthClass
+}
+
+/**
+ * Pulls a building's radius fraction inward, towards the settlement's
+ * own centre, until its resulting world position lands off water and
+ * off the river channel — halving the fraction on each attempt, bounded
+ * so a pathological case still terminates rather than looping forever.
+ * This always has somewhere to land: the settlement's own centre
+ * (`sim/mapgen/settlements.js`'s `computeBuildableMask()`) is itself
+ * guaranteed dry, and shrinking the fraction only ever moves a building
+ * closer to it, never further away.
+ *
+ * `buildingSlot()`'s own `angle`/`radiusFraction` are a pure function of
+ * `settlement.id` and the slot `index` (DESIGN 9.5's "identical layout
+ * after reload"), with no awareness of the settlement's actual
+ * position or the terrain around it — a settlement correctly sited on a
+ * narrow riverbank or a tight harbour spit can still have its
+ * population-scaled `radiusMiles` reach wider than the dry land it
+ * actually sits on, which is what this corrects for at the one point
+ * (an individual building's rendered position) where it would otherwise
+ * be visible as a building floating on open water.
+ *
+ * @param {object|undefined} grid The world grid, or `undefined` for a placeholder/test world with no real terrain (returns `radiusFraction` unchanged).
+ * @param {number} settlementX
+ * @param {number} settlementY
+ * @param {number} angle From `buildingSlot()`.
+ * @param {number} radiusMiles From `blobRadiusMiles()`.
+ * @param {number} radiusFraction From `buildingSlot()`.
+ * @param {number} [riverMinWidthClass] Required whenever `grid` is given.
+ * @returns {number} The (possibly shrunk) radius fraction to actually draw at.
+ */
+export function dryRadiusFraction(grid, settlementX, settlementY, angle, radiusMiles, radiusFraction, riverMinWidthClass) {
+  if (!grid) return radiusFraction
+  let fraction = radiusFraction
+  for (let attempt = 0; attempt < WATER_AVOIDANCE_MAX_ATTEMPTS; attempt++) {
+    const worldX = settlementX + Math.cos(angle) * radiusMiles * fraction
+    const worldY = settlementY + Math.sin(angle) * radiusMiles * fraction
+    if (!isWaterAt(grid, worldX, worldY, riverMinWidthClass)) return fraction
+    fraction *= WATER_AVOIDANCE_SHRINK_FACTOR
+  }
+  return fraction
+}
+
 /**
  * @param {{r: number, g: number, b: number}} colour
  * @returns {string} `"r,g,b"`, ready to interpolate into an `rgb(...)`/`rgba(...)` CSS string.
@@ -414,9 +486,11 @@ function drawBuildingIcon(ctx, screen, sizePx, colour, alpha, scale) {
  * @param {Map<number, Map<number, {bornAt: number, removedAt: number|null}>>} options.lifecycleMap Mutated in place; owned by the caller across frames.
  * @param {number} options.nowMs
  * @param {boolean} [options.reducedMotion] PHASES.md T2.14: skips the fade-in/abandon-fade ramp below, drawing each building at its final look (fully appeared, or fully faded if abandoned) the instant its lifecycle state changes, rather than animating the transition.
+ * @param {object} [options.grid] The world grid, for `dryRadiusFraction()`'s water check. Omitted (placeholder/test worlds), buildings draw at their raw `radiusFraction` as before.
+ * @param {number} [options.riverMinWidthClass] Required whenever `grid` is given.
  * @returns {void}
  */
-function drawBuildings({ ctx, settlement, radiusMiles, camera, viewport, projection, classOrder, shares, settlementRules, classColoursRgb, featureColoursRgb, abandonedRgb, lifecycleMap, nowMs, reducedMotion }) {
+function drawBuildings({ ctx, settlement, radiusMiles, camera, viewport, projection, classOrder, shares, settlementRules, classColoursRgb, featureColoursRgb, abandonedRgb, lifecycleMap, nowMs, reducedMotion, grid, riverMinWidthClass }) {
   const activeCount = buildingSlotCount(settlement.housing, settlementRules)
   // `updateBuildingLifecycle` always gets the real `nowMs`, reduced
   // motion or not — it is bookkeeping (when a slot was born/abandoned),
@@ -427,8 +501,9 @@ function drawBuildings({ ctx, settlement, radiusMiles, camera, viewport, project
 
   for (const [index, entry] of slots) {
     const slot = buildingSlot(settlement.id, index, classOrder, shares)
-    const worldX = settlement.x + Math.cos(slot.angle) * radiusMiles * slot.radiusFraction
-    const worldY = settlement.y + Math.sin(slot.angle) * radiusMiles * slot.radiusFraction
+    const fraction = dryRadiusFraction(grid, settlement.x, settlement.y, slot.angle, radiusMiles, slot.radiusFraction, riverMinWidthClass)
+    const worldX = settlement.x + Math.cos(slot.angle) * radiusMiles * fraction
+    const worldY = settlement.y + Math.sin(slot.angle) * radiusMiles * fraction
     const screen = projection.worldToScreen(camera, viewport, { x: worldX, y: worldY })
     const sizeMiles = (settlementRules.buildingSizeMilesByClass[slot.classId] ?? 0.1) * slot.sizeJitter
     const sizePx = sizeMiles * camera.ppm
@@ -482,9 +557,11 @@ function drawBuildings({ ctx, settlement, radiusMiles, camera, viewport, project
  * @param {Map<number, Map<number, {bornAt: number, removedAt: number|null}>>} options.lifecycleMap Mutated in place; owned by the caller across frames (the same ref-map pattern as `drawPlaceholderWorld.js`'s `holeSince`).
  * @param {number} options.nowMs
  * @param {boolean} [options.reducedMotion] PHASES.md T2.14: forwarded to `drawBuildings()`'s own doc comment.
+ * @param {object} [options.grid] Forwarded to `drawBuildings()`'s own `dryRadiusFraction()` water check. Omitted, the Detail band's individual buildings draw at their raw, terrain-blind `radiusFraction` (placeholder/test worlds).
+ * @param {number} [options.riverMinWidthClass] Required whenever `grid` is given.
  * @returns {void}
  */
-export function drawSettlementsLayer({ ctx, camera, viewport, projection, settlements, classesRules, settlementRules, lifecycleMap, nowMs, reducedMotion }) {
+export function drawSettlementsLayer({ ctx, camera, viewport, projection, settlements, classesRules, settlementRules, lifecycleMap, nowMs, reducedMotion, grid, riverMinWidthClass }) {
   const classOrder = classesRules.map((c) => c.id)
   const classColoursRgb = {}
   for (const id of classOrder) classColoursRgb[id] = hexToRgb(settlementRules.classColours[id] ?? '#888888')
@@ -503,7 +580,7 @@ export function drawSettlementsLayer({ ctx, camera, viewport, projection, settle
     } else if (camera.ppm < settlementRules.localMaxPpm) {
       drawFootprint({ ctx, settlement, radiusMiles, colour: dominantColour(shares, settlementRules.classColours), camera, viewport, projection, settlementRules })
     } else {
-      drawBuildings({ ctx, settlement, radiusMiles, camera, viewport, projection, classOrder, shares, settlementRules, classColoursRgb, featureColoursRgb, abandonedRgb, lifecycleMap, nowMs, reducedMotion })
+      drawBuildings({ ctx, settlement, radiusMiles, camera, viewport, projection, classOrder, shares, settlementRules, classColoursRgb, featureColoursRgb, abandonedRgb, lifecycleMap, nowMs, reducedMotion, grid, riverMinWidthClass })
     }
   }
 }

@@ -5,9 +5,11 @@ import {
   buildingSlotCount,
   classShares,
   dominantColour,
+  dryRadiusFraction,
   featureOffsets,
   footprintOffsets,
   footprintStreets,
+  isWaterAt,
   settlementFeatures,
   totalPopulation,
   updateBuildingLifecycle,
@@ -269,5 +271,72 @@ describe('updateBuildingLifecycle', () => {
     updateBuildingLifecycle(map, 2, 5, 1000, 2000)
     expect(map.get(1).size).toBe(3)
     expect(map.get(2).size).toBe(5)
+  })
+})
+
+// A 100x1 world, 1 mile per cell: x in [0, 50) is open water, x in [50, 60)
+// carries a river channel (width class 3), x in [60, 100) is dry land —
+// just enough shape to exercise `isWaterAt()`/`dryRadiusFraction()`'s own
+// logic without needing a real generated grid.
+function makeStripGrid() {
+  const width = 100
+  const water = new Uint8Array(width)
+  const river = new Uint8Array(width)
+  for (let x = 0; x < 50; x++) water[x] = 1
+  for (let x = 50; x < 60; x++) river[x] = 3
+  return { width, height: 1, cellMiles: 1, water, river }
+}
+
+describe('isWaterAt', () => {
+  const grid = makeStripGrid()
+
+  it('is true over open water', () => {
+    expect(isWaterAt(grid, 10.5, 0.5, 2)).toBe(true)
+  })
+
+  it('is true over a river channel at or above the given width class', () => {
+    expect(isWaterAt(grid, 55.5, 0.5, 2)).toBe(true)
+  })
+
+  it('is false below the river channel\'s own width class', () => {
+    expect(isWaterAt(grid, 55.5, 0.5, 5)).toBe(false)
+  })
+
+  it('is false over dry land', () => {
+    expect(isWaterAt(grid, 75.5, 0.5, 2)).toBe(false)
+  })
+
+  it('is true off the edge of the grid, in either direction', () => {
+    expect(isWaterAt(grid, -5, 0.5, 2)).toBe(true)
+    expect(isWaterAt(grid, 150, 0.5, 2)).toBe(true)
+  })
+})
+
+describe('dryRadiusFraction', () => {
+  const grid = makeStripGrid()
+
+  it('returns the fraction unchanged when no grid is given (placeholder/test worlds)', () => {
+    expect(dryRadiusFraction(undefined, 99.5, 0.5, 0, 60, 1, 2)).toBe(1)
+  })
+
+  it('returns the fraction unchanged when the initial position is already dry', () => {
+    expect(dryRadiusFraction(grid, 99.5, 0.5, 0, 1, 0.1, 2)).toBe(0.1)
+  })
+
+  it('shrinks the fraction until the position lands off water, pulling towards the (dry) settlement centre', () => {
+    // Settlement at x=99.5 (dry), pointing back across the river/water
+    // band (angle=PI, i.e. -x direction). The raw fraction (1.0) lands
+    // at x=39.5 (open water); shrinking once (x0.6) lands at x=63.5,
+    // which is dry.
+    const fraction = dryRadiusFraction(grid, 99.5, 0.5, Math.PI, 60, 1, 2)
+    expect(fraction).toBeCloseTo(0.6, 10)
+    const worldX = 99.5 + Math.cos(Math.PI) * 60 * fraction
+    expect(isWaterAt(grid, worldX, 0.5, 2)).toBe(false)
+  })
+
+  it('still returns a (shrunk) number rather than looping forever when every attempt stays wet', () => {
+    const allWater = { width: 2, height: 1, cellMiles: 1, water: new Uint8Array([1, 1]), river: new Uint8Array([0, 0]) }
+    const fraction = dryRadiusFraction(allWater, 0.5, 0.5, 0, 1, 1, 2)
+    expect(fraction).toBeCloseTo(1 * 0.6 ** 6, 10)
   })
 })
