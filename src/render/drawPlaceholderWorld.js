@@ -68,9 +68,12 @@ const HOLE_THRESHOLD_MS = 150
  * @param {string} [options.overlayCargoId] T2.12: the selected cargo when `overlayMode === 'prices'`.
  * @param {Map<number, string>} [options.classIdByIndex] T2.12: required when `overlayMode` is `'prices'` or `'classMix'`.
  * @param {number} [options.startYear] T2.12: the save's calendar start year, required when `overlayMode === 'prices'`.
+ * @param {boolean} [options.seasonEnabled] PHASES.md T2.13: the HUD's seasons toggle. Omitted (or `false`), terrain tiles render with no seasonal tint/snow/harvest colour at all, and the tile manager never pays for it.
+ * @param {number} [options.seasonMonthIndex] T2.13: the sim's current calendar month (0 = January, from `sim/clock.js`'s `monthIndexOf()`). Ignored when `seasonEnabled` is falsy.
  * @returns {void}
  */
-export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, tileManager, holeSince, holeStats, links, palette, settlements, classesRules, settlementLifecycle, industries, gameDay, cargoRules, grid, gameState, rules, overlayMode, overlayCargoId, classIdByIndex, startYear }) {
+export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, tileManager, holeSince, holeStats, links, palette, settlements, classesRules, settlementLifecycle, industries, gameDay, cargoRules, grid, gameState, rules, overlayMode, overlayCargoId, classIdByIndex, startYear, seasonEnabled, seasonMonthIndex }) {
+  tileManager.setSeason(Boolean(seasonEnabled), seasonMonthIndex ?? 0)
   const { levelPpm, visible } = tileManager.ensureVisible(camera, viewport, topDownProjection)
   const tileSize = tileWorldSize(levelPpm)
 

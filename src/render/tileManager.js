@@ -63,7 +63,7 @@ function buildWorldInitPayload({ grid, landuseEnum, palette }) {
  * @param {{grid: object, landuseEnum: string[], palette: object}} [options.world] PHASES.md T2.04: a fully generated world grid plus the rules a terrain sampler needs (`terrain.json`'s `landuseEnum`, `palette.json`). Omitted when no world has loaded yet — every worker then falls back to its own placeholder renderer, matching T2.03's behaviour exactly.
  * @param {() => void} [options.onDirty] Called whenever a requested tile arrives, so the caller can mark its render loop dirty.
  * @param {(key: string|null, message: string) => void} [options.onError]
- * @returns {{ensureVisible: Function, getDrawable: Function, cache: object, destroy: () => void}}
+ * @returns {{ensureVisible: Function, getDrawable: Function, cache: object, setSeason: (enabled: boolean, monthIndex: number) => void, destroy: () => void}}
  */
 export function createTileManager({
   levels = buildTileLevels(),
@@ -87,6 +87,12 @@ export function createTileManager({
     onError,
   })
 
+  // PHASES.md T2.13: which calendar month (if any) terrain tiles should
+  // render seasonal colour for. Starts disabled so every existing
+  // caller that never calls `setSeason()` sees no behaviour change at
+  // all — tile requests simply never carry a `monthIndex`.
+  let season = { enabled: false, monthIndex: 0 }
+
   /**
    * @param {string} key
    * @param {number} levelPpm
@@ -104,6 +110,7 @@ export function createTileManager({
       tileY,
       tileWorldSize: tileWorldSize(levelPpm, tilePixels),
       tilePixels,
+      monthIndex: season.enabled ? season.monthIndex : undefined,
     }, priority)
   }
 
@@ -147,6 +154,29 @@ export function createTileManager({
     },
 
     cache,
+
+    /**
+     * Updates which calendar month (if any) terrain tiles should render
+     * seasonal colour for (PHASES.md T2.13: HUD toggle + the sim's
+     * current month). A cached tile's bitmap already has last month's
+     * (or no) season baked into its pixels — `requestTile()`'s own
+     * `cache.has(key)` check means it is never re-requested on its own,
+     * so an actual change here clears the whole cache once, forcing
+     * every tile the camera currently needs to be redrawn with the new
+     * season; calling this with the same `enabled`/`monthIndex` as last
+     * time (the common case: once per frame, from `MapView`'s own
+     * per-frame draw) is a no-op, not a redraw.
+     *
+     * @param {boolean} enabled
+     * @param {number} monthIndex 0-based calendar month (0 = January). Ignored when `enabled` is `false`.
+     * @returns {void}
+     */
+    setSeason(enabled, monthIndex) {
+      const next = { enabled, monthIndex: enabled ? monthIndex : 0 }
+      if (next.enabled === season.enabled && next.monthIndex === season.monthIndex) return
+      season = next
+      cache.clear()
+    },
 
     /** @returns {void} */
     destroy() {

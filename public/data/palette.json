@@ -130,5 +130,20 @@
     "suitabilityBuildableColour": "#6fae55",
     "suitabilityUnbuildableColour": "#6b6254",
     "cellAlpha": 0.4
+  },
+  "seasons": {
+    "tintStrength": 0.06,
+    "monthlyTintColours": [
+      "#8fa6bf", "#97a8ba", "#a9bb86", "#bcc978", "#cdd176",
+      "#dccd6c", "#e0c45e", "#dba84e", "#cf8f49", "#bf7c4a",
+      "#9c8577", "#8894ac"
+    ],
+    "snowLineMetres": 900,
+    "snowFadeRangeMetres": 150,
+    "snowColour": "#eef3f5",
+    "snowMonths": [11, 0, 1],
+    "harvestMonths": [7, 8, 9],
+    "harvestColour": "#c9932f",
+    "harvestStrength": 0.35
   }
 }

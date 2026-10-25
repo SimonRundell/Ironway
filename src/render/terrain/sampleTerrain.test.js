@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createWorldGrid, indexOf } from '../../sim/mapgen/grid.js'
 import { buildRiverFields } from './riverField.js'
-import { buildLanduseColourLookup, hexToRgb, sampleTerrainPixel } from './sampleTerrain.js'
+import { buildLanduseColourLookup, buildSeasonContext, hexToRgb, sampleTerrainPixel } from './sampleTerrain.js'
 
 const LANDUSE_ENUM = ['sea', 'lake', 'arable', 'mixed', 'pastoral', 'forest', 'moor', 'marsh', 'rock']
 const PALETTE_LANDUSE = {
@@ -20,6 +20,22 @@ const BASE_PALETTE = {
   river: '#5f8fa6',
   fineLandCover: { minPpm: 24 },
   textureNoise: { strength: 0, scaleMiles: 0.5 }, // off for exact-colour assertions
+}
+
+const SEASONS_RULES = {
+  tintStrength: 0.06,
+  monthlyTintColours: [
+    '#8fa6bf', '#97a8ba', '#a9bb86', '#bcc978', '#cdd176',
+    '#dccd6c', '#e0c45e', '#dba84e', '#cf8f49', '#bf7c4a',
+    '#9c8577', '#8894ac',
+  ],
+  snowLineMetres: 900,
+  snowFadeRangeMetres: 150,
+  snowColour: '#eef3f5',
+  snowMonths: [11, 0, 1],
+  harvestMonths: [7, 8, 9],
+  harvestColour: '#c9932f',
+  harvestStrength: 0.35,
 }
 
 /**
@@ -290,5 +306,97 @@ describe('sampleTerrainPixel', () => {
       const options = { grid, sdf, worldX: 5.4, worldY: 5.6, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE, landuseEnum: LANDUSE_ENUM, ppm: 60 }
       expect(sampleTerrainPixel(options)).toEqual(sampleTerrainPixel(options))
     })
+  })
+
+  describe('seasons (PHASES.md T2.13)', () => {
+    const sdf = new Float32Array(100).fill(5) // well inside land everywhere
+
+    it('a season-less call (no `season` option) is byte-identical to passing one built with no monthIndex (both mean "seasons off")', () => {
+      const grid = makeFlatGrid()
+      const withoutSeason = sampleTerrainPixel({ grid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE })
+      const withNullSeason = sampleTerrainPixel({ grid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE, season: buildSeasonContext(SEASONS_RULES, undefined) })
+      expect(withNullSeason).toEqual(withoutSeason)
+    })
+
+    it('a subtle monthly tint shifts the final colour, in and out of season', () => {
+      const grid = makeFlatGrid()
+      const noSeason = sampleTerrainPixel({ grid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE })
+      const july = sampleTerrainPixel({ grid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE, season: buildSeasonContext(SEASONS_RULES, 6) })
+      expect(colourDistance(july, noSeason)).toBeGreaterThan(0)
+      expect(colourDistance(july, noSeason)).toBeLessThan(40) // "subtle", not a wholesale recolour
+    })
+
+    it('blends toward the snow colour above the snow line in a snow month, and not below it', () => {
+      const highGrid = makeFlatGrid({ landuse: new Uint8Array(100).fill(LANDUSE_ENUM.indexOf('moor')), elev: new Int16Array(100).fill(1200) })
+      const lowGrid = makeFlatGrid({ landuse: new Uint8Array(100).fill(LANDUSE_ENUM.indexOf('moor')), elev: new Int16Array(100).fill(50) })
+      const january = buildSeasonContext(SEASONS_RULES, 0)
+
+      const high = sampleTerrainPixel({ grid: highGrid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE, season: january })
+      const low = sampleTerrainPixel({ grid: lowGrid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE, season: january })
+      const highNoSeason = sampleTerrainPixel({ grid: highGrid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE })
+      const lowNoSeason = sampleTerrainPixel({ grid: lowGrid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE })
+
+      expect(colourDistance(high, hexToRgb(SEASONS_RULES.snowColour))).toBeLessThan(colourDistance(highNoSeason, hexToRgb(SEASONS_RULES.snowColour)))
+      // Below the snow line, only the small whole-scene tint should move
+      // the colour — far less than the high-elevation cell, which gets
+      // that same tint *plus* a real blend toward the snow colour.
+      expect(colourDistance(low, lowNoSeason)).toBeLessThan(colourDistance(high, highNoSeason) / 2)
+    })
+
+    it('does not snow outside a snow month, even high above the snow line', () => {
+      const highGrid = makeFlatGrid({ landuse: new Uint8Array(100).fill(LANDUSE_ENUM.indexOf('moor')), elev: new Int16Array(100).fill(1200) })
+      const july = buildSeasonContext(SEASONS_RULES, 6)
+      const coloured = sampleTerrainPixel({ grid: highGrid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE, season: july })
+      expect(colourDistance(coloured, hexToRgb(SEASONS_RULES.snowColour))).toBeGreaterThan(50)
+    })
+
+    it('tints arable gold in a harvest month, but leaves pastoral untouched', () => {
+      const arableGrid = makeFlatGrid({ landuse: new Uint8Array(100).fill(LANDUSE_ENUM.indexOf('arable')) })
+      const pastoralGrid = makeFlatGrid({ landuse: new Uint8Array(100).fill(LANDUSE_ENUM.indexOf('pastoral')) })
+      const august = buildSeasonContext(SEASONS_RULES, 7)
+
+      const arable = sampleTerrainPixel({ grid: arableGrid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE, landuseEnum: LANDUSE_ENUM, season: august })
+      const arableNoSeason = sampleTerrainPixel({ grid: arableGrid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE, landuseEnum: LANDUSE_ENUM })
+      const pastoral = sampleTerrainPixel({ grid: pastoralGrid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE, landuseEnum: LANDUSE_ENUM, season: august })
+      const pastoralNoSeason = sampleTerrainPixel({ grid: pastoralGrid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE, landuseEnum: LANDUSE_ENUM })
+
+      expect(colourDistance(arable, hexToRgb(SEASONS_RULES.harvestColour))).toBeLessThan(colourDistance(arableNoSeason, hexToRgb(SEASONS_RULES.harvestColour)))
+      // Pastoral isn't the harvest rule's target class: only the shared whole-scene tint should separate it from its own no-season colour.
+      expect(colourDistance(pastoral, pastoralNoSeason)).toBeLessThan(15)
+    })
+
+    it('does not tint arable gold outside a harvest month', () => {
+      const arableGrid = makeFlatGrid({ landuse: new Uint8Array(100).fill(LANDUSE_ENUM.indexOf('arable')) })
+      const january = buildSeasonContext(SEASONS_RULES, 0)
+      const arable = sampleTerrainPixel({ grid: arableGrid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE, landuseEnum: LANDUSE_ENUM, season: january })
+      const arableNoSeason = sampleTerrainPixel({ grid: arableGrid, sdf, worldX: 5, worldY: 5, landuseColours: LANDUSE_COLOURS, palette: BASE_PALETTE, landuseEnum: LANDUSE_ENUM })
+      // Only the whole-scene January tint should separate them, not the harvest blend.
+      expect(colourDistance(arable, arableNoSeason)).toBeLessThan(15)
+    })
+  })
+})
+
+describe('buildSeasonContext', () => {
+  it('returns null when there is no seasons block at all', () => {
+    expect(buildSeasonContext(undefined, 5)).toBeNull()
+  })
+
+  it('returns null when no month is given, even with a valid seasons block (the HUD toggle being off)', () => {
+    expect(buildSeasonContext(SEASONS_RULES, undefined)).toBeNull()
+  })
+
+  it('flags snowActive only for months in snowMonths', () => {
+    expect(buildSeasonContext(SEASONS_RULES, 0).snowActive).toBe(true) // January
+    expect(buildSeasonContext(SEASONS_RULES, 11).snowActive).toBe(true) // December
+    expect(buildSeasonContext(SEASONS_RULES, 6).snowActive).toBe(false) // July
+  })
+
+  it('flags harvestActive only for months in harvestMonths', () => {
+    expect(buildSeasonContext(SEASONS_RULES, 8).harvestActive).toBe(true) // September
+    expect(buildSeasonContext(SEASONS_RULES, 0).harvestActive).toBe(false) // January
+  })
+
+  it('is deterministic for the same month', () => {
+    expect(buildSeasonContext(SEASONS_RULES, 4)).toEqual(buildSeasonContext(SEASONS_RULES, 4))
   })
 })

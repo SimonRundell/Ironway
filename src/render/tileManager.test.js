@@ -172,4 +172,59 @@ describe('createTileManager', () => {
     createTileManager({ createWorker, workerCount: workers.length })
     for (const worker of workers) expect(worker.postMessage).not.toHaveBeenCalled()
   })
+
+  describe('setSeason (PHASES.md T2.13)', () => {
+    it('render requests carry no monthIndex at all by default (seasons off, zero cost)', () => {
+      const { createWorker, workers } = fakeWorkerFactory()
+      const manager = createTileManager({ createWorker, workerCount: workers.length })
+      manager.ensureVisible({ x: 0, y: 0, ppm: 24 }, VIEWPORT, topDownProjection)
+      const request = workers.flatMap((w) => w.postMessage.mock.calls.map((call) => call[0])).find((m) => m.type === 'render')
+      expect(request.monthIndex).toBeUndefined()
+    })
+
+    it('render requests carry monthIndex once seasons are enabled', () => {
+      const { createWorker, workers } = fakeWorkerFactory()
+      const manager = createTileManager({ createWorker, workerCount: workers.length })
+      manager.setSeason(true, 7)
+      manager.ensureVisible({ x: 0, y: 0, ppm: 24 }, VIEWPORT, topDownProjection)
+      const request = workers.flatMap((w) => w.postMessage.mock.calls.map((call) => call[0])).find((m) => m.type === 'render')
+      expect(request.monthIndex).toBe(7)
+    })
+
+    it('clears the cache when the enabled flag or month actually changes', () => {
+      const manager = createTileManager({ createWorker: fakeWorkerFactory().createWorker })
+      const key = tileKey(0, 0, 0)
+      manager.cache.set(key, { id: key }, 1)
+
+      manager.setSeason(true, 3)
+      expect(manager.cache.has(key)).toBe(false)
+
+      manager.cache.set(key, { id: key }, 1)
+      manager.setSeason(true, 4) // month changed
+      expect(manager.cache.has(key)).toBe(false)
+
+      manager.cache.set(key, { id: key }, 1)
+      manager.setSeason(false, 4) // toggled off
+      expect(manager.cache.has(key)).toBe(false)
+    })
+
+    it('is a no-op (no cache clear) when called again with the same enabled/month', () => {
+      const manager = createTileManager({ createWorker: fakeWorkerFactory().createWorker })
+      manager.setSeason(true, 3)
+      const key = tileKey(0, 0, 0)
+      manager.cache.set(key, { id: key }, 1)
+
+      manager.setSeason(true, 3) // identical to last call
+      expect(manager.cache.has(key)).toBe(true)
+    })
+
+    it('never clears the cache on repeated disabled calls (the common per-frame case when the toggle is off)', () => {
+      const manager = createTileManager({ createWorker: fakeWorkerFactory().createWorker })
+      const key = tileKey(0, 0, 0)
+      manager.cache.set(key, { id: key }, 1)
+      manager.setSeason(false, 0)
+      manager.setSeason(false, 0)
+      expect(manager.cache.has(key)).toBe(true)
+    })
+  })
 })

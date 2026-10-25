@@ -388,6 +388,52 @@ function lineStripeFactor(worldX, worldY, spacingMiles, lineWidthMiles) {
 }
 
 /**
+ * @param {string} hex A tint colour from `palette.json`'s `seasons.monthlyTintColours`.
+ * @param {number} strength `seasons.tintStrength`.
+ * @returns {{r: number, g: number, b: number}} A multiplier close to 1, the same idiom `textureNoiseMultiplier()` uses: each channel nudged toward (or away from) `hex`'s own channel value, scaled by `strength`.
+ */
+function seasonTintMultiplier(hex, strength) {
+  const c = hexToRgb(hex)
+  return {
+    r: 1 + (c.r / 255 - 0.5) * 2 * strength,
+    g: 1 + (c.g / 255 - 0.5) * 2 * strength,
+    b: 1 + (c.b / 255 - 0.5) * 2 * strength,
+  }
+}
+
+/**
+ * Precomputes one tile-render's worth of seasonal rendering state from
+ * `palette.json`'s optional `seasons` block and the sim's current
+ * calendar month (PHASES.md T2.13: "subtle seasonal tint by month, snow
+ * on high ground in winter, harvest colours on arable"). Called once per
+ * tile render (`workers/tileWorker.js`), never once per pixel —
+ * `sampleTerrainPixel()` runs up to 512x512 times per tile, so resolving
+ * month-indexed arrays and parsing hex colours has to happen here, not
+ * in the hot per-pixel path. A `null` return means "seasons off": every
+ * per-pixel season branch below is skipped outright, matching this
+ * project's established "no cost when off" idiom (`overlays.js`'s
+ * `mode === 'none'`, `traffic.js`'s zoom-gate, both a single check
+ * before any other work).
+ *
+ * @param {object} [seasonsRules] `palette.json`'s `seasons` block. Omitted (no block in a minimal test palette, or the feature not yet configured) disables seasons entirely.
+ * @param {number} [monthIndex] 0-based calendar month (0 = January), from `sim/clock.js`'s `monthIndexOf()`. Omitted (the HUD toggle is off) disables seasons entirely, regardless of `seasonsRules`.
+ * @returns {{tint: {r: number, g: number, b: number}, snowActive: boolean, snowLineMetres: number, snowFadeRangeMetres: number, snowColour: {r: number, g: number, b: number}, harvestActive: boolean, harvestColour: {r: number, g: number, b: number}, harvestStrength: number}|null}
+ */
+export function buildSeasonContext(seasonsRules, monthIndex) {
+  if (!seasonsRules || monthIndex === undefined || monthIndex === null) return null
+  return {
+    tint: seasonTintMultiplier(seasonsRules.monthlyTintColours[monthIndex], seasonsRules.tintStrength),
+    snowActive: seasonsRules.snowMonths.includes(monthIndex),
+    snowLineMetres: seasonsRules.snowLineMetres,
+    snowFadeRangeMetres: seasonsRules.snowFadeRangeMetres,
+    snowColour: hexToRgb(seasonsRules.snowColour),
+    harvestActive: seasonsRules.harvestMonths.includes(monthIndex),
+    harvestColour: hexToRgb(seasonsRules.harvestColour),
+    harvestStrength: seasonsRules.harvestStrength,
+  }
+}
+
+/**
  * Applies DESIGN 9.4's `ppm >= 24` fine land cover for one land-use
  * class on top of an already-computed base colour: tree glyphs on
  * forest, hedgerow lines on arable, blotchy patches on pastoral,
@@ -448,9 +494,10 @@ function applyFineLandCover(colour, worldX, worldY, nearestLanduseName) {
  * @param {Float32Array} [options.riverDistance] From `riverField.js`'s `buildRiverFields()`. Omit to render no rivers at all.
  * @param {Float32Array} [options.riverHalfWidth] From `riverField.js`'s `buildRiverFields()`.
  * @param {number} [options.ppm] This tile's effective pixels-per-mile, for the `ppm >= 24` fine-land-cover gate. Omit (or `landuseEnum` omit) to always skip fine land cover.
+ * @param {ReturnType<typeof buildSeasonContext>} [options.season] PHASES.md T2.13: precomputed seasonal state from `buildSeasonContext()`. Omit (or pass `null`, what that function returns when seasons are off) to skip every seasonal branch below entirely — no tint, no snow, no harvest colour, at zero added per-pixel cost.
  * @returns {{r: number, g: number, b: number}} 0-255 integer channels.
  */
-export function sampleTerrainPixel({ grid, sdf, worldX, worldY, landuseColours, palette, landuseEnum, riverDistance, riverHalfWidth, ppm }) {
+export function sampleTerrainPixel({ grid, sdf, worldX, worldY, landuseColours, palette, landuseEnum, riverDistance, riverHalfWidth, ppm, season }) {
   const { width, height, cellMiles, elev, soil, rain } = grid
   const gx = worldX / cellMiles
   const gy = worldY / cellMiles
@@ -462,9 +509,25 @@ export function sampleTerrainPixel({ grid, sdf, worldX, worldY, landuseColours, 
 
   const rawLanduseColour = bilinearLanduseColour(grid.landuse, width, height, gx, gy, landuseColours)
 
+  // The nearest (not bilinearly blended) cell's land-use class name,
+  // needed by both the ppm-gated fine land cover below and (PHASES.md
+  // T2.13) the harvest-colour check, which isn't ppm-gated — harvest
+  // gold on a sea of arable fields is a broad landscape mood, visible
+  // at any zoom, not a close-up texture detail. Computed once here,
+  // whenever a caller passes `landuseEnum` at all, so neither consumer
+  // repeats the same lookup.
+  let nearestLanduseName
+  if (landuseEnum) {
+    const nearestX = Math.min(Math.max(Math.round(gx), 0), width - 1)
+    const nearestY = Math.min(Math.max(Math.round(gy), 0), height - 1)
+    nearestLanduseName = landuseEnum[grid.landuse[nearestY * width + nearestX]]
+  }
+
   // Land colour: land-use blend, tinted by soil fertility (richer soils
   // nudged greener) and rainfall (wetter land nudged cooler/bluer),
-  // then shaded by the elevation gradient.
+  // then (T2.13) golden harvest colour on arable in harvest months,
+  // then shaded by the elevation gradient, then (T2.13) blended toward
+  // snow above the snow line in winter months.
   const soilByte = bilinearSample(soil, width, height, gx, gy)
   const rainByte = bilinearSample(rain, width, height, gx, gy)
   const soilTint = (soilByte / 255 - 0.5) * 0.15
@@ -474,15 +537,26 @@ export function sampleTerrainPixel({ grid, sdf, worldX, worldY, landuseColours, 
     g: rawLanduseColour.g * (1 + soilTint),
     b: rawLanduseColour.b * (1 + rainTint * 0.5),
   }
+  if (season && season.harvestActive && nearestLanduseName === 'arable') {
+    landColour = lerpRgb(landColour, season.harvestColour, season.harvestStrength)
+  }
   const shade = 1 + hillshadeDot(grid, gx, gy, palette.hillshade) * palette.hillshade.strength
   landColour = { r: landColour.r * shade, g: landColour.g * shade, b: landColour.b * shade }
+
+  // Elevation (world metres, negative below sea level), reused below for
+  // both the sea depth ramp and, when seasons are enabled, the winter
+  // snow line.
+  const elevation = bilinearSample(elev, width, height, gx, gy)
+  if (season && season.snowActive && elevation > season.snowLineMetres) {
+    const snowBlend = smoothstep(season.snowLineMetres, season.snowLineMetres + season.snowFadeRangeMetres, elevation)
+    landColour = lerpRgb(landColour, season.snowColour, snowBlend)
+  }
 
   // Sea colour: a depth ramp from the same elevation field (negative
   // below sea level), shallow near the coast, deep further out, tinted
   // toward the local land-use colour so a lake (landuse class 'lake')
   // reads a visibly different hue from the open sea (class 'sea')
   // rather than both sharing one identical ramp.
-  const elevation = bilinearSample(elev, width, height, gx, gy)
   const depthFactor = clamp01(Math.max(0, -elevation) / palette.seaDepth.depthScaleMetres)
   const depthRamp = lerpRgb(paletteColours.seaShallow, paletteColours.seaDeep, depthFactor)
   const seaColour = lerpRgb(depthRamp, rawLanduseColour, 0.35)
@@ -520,9 +594,6 @@ export function sampleTerrainPixel({ grid, sdf, worldX, worldY, landuseColours, 
   // colour above — a pattern needs one definite class to choose
   // between tree glyphs, hedgerows, patches, speckle or reeds.
   if (landuseEnum && ppm !== undefined && ppm >= palette.fineLandCover.minPpm) {
-    const nearestX = Math.min(Math.max(Math.round(gx), 0), width - 1)
-    const nearestY = Math.min(Math.max(Math.round(gy), 0), height - 1)
-    const nearestLanduseName = landuseEnum[grid.landuse[nearestY * width + nearestX]]
     colour = applyFineLandCover(colour, worldX, worldY, nearestLanduseName)
   }
 
@@ -547,6 +618,13 @@ export function sampleTerrainPixel({ grid, sdf, worldX, worldY, landuseColours, 
 
   const noise = textureNoiseMultiplier(worldX, worldY, palette.textureNoise)
   colour = { r: colour.r * noise, g: colour.g * noise, b: colour.b * noise }
+
+  // Subtle whole-scene monthly tint (PHASES.md T2.13), applied last so
+  // it nudges the final land-or-sea colour alike, after every other
+  // effect (rivers, foam, coastline, texture) has already settled it.
+  if (season) {
+    colour = { r: colour.r * season.tint.r, g: colour.g * season.tint.g, b: colour.b * season.tint.b }
+  }
 
   return { r: clampByte(colour.r), g: clampByte(colour.g), b: clampByte(colour.b) }
 }

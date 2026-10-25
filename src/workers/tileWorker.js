@@ -1,5 +1,5 @@
 import { hashString } from '../sim/rng.js'
-import { sampleTerrainPixel } from '../render/terrain/sampleTerrain.js'
+import { buildSeasonContext, sampleTerrainPixel } from '../render/terrain/sampleTerrain.js'
 
 /**
  * The tile render worker (PHASES.md T2.03/T2.04, DESIGN 9.4): runs off
@@ -12,9 +12,12 @@ import { sampleTerrainPixel } from '../render/terrain/sampleTerrain.js'
  * once, before any render request, and is kept in this module's own
  * state for every subsequent `render` message this worker receives.
  * Render requests are `{type: 'render', key, level, tileX, tileY,
- * tileWorldSize, tilePixels}`; the reply is exactly one of `{type:
- * 'tile', key, bitmap}` (bitmap transferred, not copied) or `{type:
- * 'error', key, message}`.
+ * tileWorldSize, tilePixels, monthIndex}` (`monthIndex`, PHASES.md
+ * T2.13, is the current calendar month when the HUD's seasons toggle is
+ * on, omitted when it is off — `buildSeasonContext()` treats a missing
+ * `monthIndex` as "seasons off" regardless of what `palette.seasons`
+ * says); the reply is exactly one of `{type: 'tile', key, bitmap}`
+ * (bitmap transferred, not copied) or `{type: 'error', key, message}`.
  *
  * Without an `init` message (no world loaded yet, or a test pool that
  * never sends one), a tile renders as a deterministic placeholder — a
@@ -54,10 +57,10 @@ function renderPlaceholderTile(ctx, { key, level, tileX, tileY, tilePixels }) {
 
 /**
  * @param {OffscreenCanvasRenderingContext2D} ctx
- * @param {{tileX: number, tileY: number, tileWorldSize: number, tilePixels: number}} request
+ * @param {{tileX: number, tileY: number, tileWorldSize: number, tilePixels: number, monthIndex: number|undefined}} request `monthIndex` (PHASES.md T2.13) is the current calendar month when the HUD's seasons toggle is on, omitted when it is off.
  * @returns {void}
  */
-function renderRealTerrainTile(ctx, { tileX, tileY, tileWorldSize, tilePixels }) {
+function renderRealTerrainTile(ctx, { tileX, tileY, tileWorldSize, tilePixels, monthIndex }) {
   const grid = { width: world.width, height: world.height, cellMiles: world.cellMiles, elev: world.elev, landuse: world.landuse, soil: world.soil, rain: world.rain }
   const worldOriginX = tileX * tileWorldSize
   const worldOriginY = tileY * tileWorldSize
@@ -65,6 +68,9 @@ function renderRealTerrainTile(ctx, { tileX, tileY, tileWorldSize, tilePixels })
   // tileWorldSize()), so this recovers the level's own ppm exactly —
   // DESIGN 9.4's "ppm >= 24" fine-land-cover gate needs to know it.
   const ppm = tilePixels / tileWorldSize
+  // Resolved once per tile, not per pixel (see buildSeasonContext()'s
+  // own doc comment on why that matters here).
+  const season = buildSeasonContext(world.palette.seasons, monthIndex)
 
   const image = ctx.createImageData(tilePixels, tilePixels)
   for (let py = 0; py < tilePixels; py++) {
@@ -73,7 +79,7 @@ function renderRealTerrainTile(ctx, { tileX, tileY, tileWorldSize, tilePixels })
       const worldX = worldOriginX + ((px + 0.5) / tilePixels) * tileWorldSize
       const { r, g, b } = sampleTerrainPixel({
         grid, sdf: world.sdf, worldX, worldY, landuseColours: world.landuseColours, palette: world.palette,
-        landuseEnum: world.landuseEnum, riverDistance: world.riverDistance, riverHalfWidth: world.riverHalfWidth, ppm,
+        landuseEnum: world.landuseEnum, riverDistance: world.riverDistance, riverHalfWidth: world.riverHalfWidth, ppm, season,
       })
       const i = (py * tilePixels + px) * 4
       image.data[i] = r
@@ -94,14 +100,14 @@ self.onmessage = (event) => {
   }
   if (type !== 'render') return
 
-  const { key, level, tileX, tileY, tileWorldSize, tilePixels } = event.data
+  const { key, level, tileX, tileY, tileWorldSize, tilePixels, monthIndex } = event.data
 
   try {
     const canvas = new OffscreenCanvas(tilePixels, tilePixels)
     const ctx = canvas.getContext('2d')
 
     if (world) {
-      renderRealTerrainTile(ctx, { tileX, tileY, tileWorldSize, tilePixels })
+      renderRealTerrainTile(ctx, { tileX, tileY, tileWorldSize, tilePixels, monthIndex })
     } else {
       renderPlaceholderTile(ctx, { key, level, tileX, tileY, tilePixels })
     }

@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { monthIndexOf } from '../sim/clock.js'
+import { getSetting, setSetting } from '../state/settings.js'
 import { useGameSession } from '../state/useGameSession.js'
 import MapView from './MapView.jsx'
 import DateSpeedControls from './play/DateSpeedControls.jsx'
 import EconomyLevelBadge from './play/EconomyLevelBadge.jsx'
 import OverlayToggles from './play/OverlayToggles.jsx'
 import SearchBox from './play/SearchBox.jsx'
+import SeasonsToggle from './play/SeasonsToggle.jsx'
 import Minimap from './play/Minimap.jsx'
 import SelectionPanel from './play/SelectionPanel.jsx'
 
@@ -44,6 +47,13 @@ export default function PlayPage() {
   const [overlayMode, setOverlayMode] = useState('none')
   const [overlayCargoId, setOverlayCargoId] = useState('')
   const [selection, setSelection] = useState(null)
+  const [seasonsEnabled, setSeasonsEnabledState] = useState(() => getSetting('seasonsEnabled', true))
+
+  /** @param {boolean} value @returns {void} */
+  function setSeasonsEnabled(value) {
+    setSeasonsEnabledState(value)
+    setSetting('seasonsEnabled', value)
+  }
 
   const ready = session.status === 'ready'
 
@@ -70,18 +80,24 @@ export default function PlayPage() {
       classIdByIndex: session.caches.classIdByIndex,
       startYear: session.world.meta.startYear,
       overlay: { mode: 'none', cargoId: null },
+      season: { enabled: seasonsEnabled, monthIndex: monthIndexOf(session.gameDay) },
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready])
 
   // `sim.gameDay` and every new `dirty` patch (settlements/industries/
   // links mutated in place) need a redraw; neither touches `world`'s
-  // own identity, so nothing else would tell the render loop to catch up.
+  // own identity, so nothing else would tell the render loop to catch
+  // up. The seasons toggle (PHASES.md T2.13) is folded into this same
+  // effect rather than a separate one chained through `seasonsEnabled`
+  // state, since both ultimately just mutate `worldForMap` in place and
+  // call `markDirty()` off the same `gameDay`-driven trigger.
   useEffect(() => {
-    if (!ready) return
+    if (!ready || !worldForMap) return
     simRef.current.gameDay = session.gameDay
+    worldForMap.season = { enabled: seasonsEnabled, monthIndex: monthIndexOf(session.gameDay) }
     mapViewRef.current?.markDirty()
-  }, [ready, session.gameDay, session.renderTick])
+  }, [ready, worldForMap, session.gameDay, session.renderTick, seasonsEnabled])
 
   // Picks the default cargo (first time only, once rules are available)
   // and mutates the overlay toggle in place in the same effect, rather
@@ -126,6 +142,7 @@ export default function PlayPage() {
         </div>
         <div className="hud-top-right">
           <OverlayToggles mode={overlayMode} setMode={setOverlayMode} cargoId={overlayCargoId} setCargoId={setOverlayCargoId} cargoRules={session.rules.cargo} />
+          <SeasonsToggle enabled={seasonsEnabled} setEnabled={setSeasonsEnabled} />
           <SearchBox
             settlements={session.gameState.settlements}
             industries={session.gameState.industries}
