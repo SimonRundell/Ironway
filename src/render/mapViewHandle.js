@@ -75,7 +75,13 @@ export function createMapViewHandle({ cameraRef, jumpAnimRef, viewportRef, markD
  */
 export function stepJumpAnimation({ jumpAnimRef, cameraRef, timestampMs, markDirty }) {
   const anim = jumpAnimRef.current
-  const t = Math.min(1, (timestampMs - anim.startMs) / anim.durationMs)
+  // `durationMs <= 0` (PHASES.md T2.14's reduced-motion setting builds
+  // its handle with `jumpDurationMs: 0`, so every jump snaps instantly)
+  // is treated as "already finished" explicitly, rather than dividing
+  // by zero: `timestampMs - anim.startMs` can legitimately be exactly 0
+  // on the very first frame after `jumpTo()` runs, which would make
+  // `0 / 0` evaluate to `NaN`, not `Infinity`.
+  const t = anim.durationMs <= 0 ? 1 : Math.min(1, (timestampMs - anim.startMs) / anim.durationMs)
   cameraRef.current = lerpCamera(anim.from, anim.to, easeOutCubic(t))
   if (t >= 1) jumpAnimRef.current = null
   else markDirty()

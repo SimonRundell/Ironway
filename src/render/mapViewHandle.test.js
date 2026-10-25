@@ -106,4 +106,21 @@ describe('stepJumpAnimation', () => {
     expect(cameraRef.current.y).toBeCloseTo(50, 10)
     expect(cameraRef.current.ppm).toBeCloseTo(10, 10)
   })
+
+  it('snaps straight to the target with a zero duration (PHASES.md T2.14 reduced motion), even on the very first frame where timestampMs equals startMs', () => {
+    const cameraRef = { current: null }
+    const jumpAnimRef = { current: { from: { x: 0, y: 0, ppm: 2 }, to: { x: 100, y: 50, ppm: 10 }, startMs: 1000, durationMs: 0 } }
+    const markDirty = vi.fn()
+
+    // Same instant as startMs: a naive (timestampMs - startMs) / durationMs
+    // would be 0 / 0 = NaN here, not Infinity, since the numerator is
+    // also exactly zero.
+    stepJumpAnimation({ jumpAnimRef, cameraRef, timestampMs: 1000, markDirty })
+
+    expect(cameraRef.current.x).toBeCloseTo(100, 10)
+    expect(cameraRef.current.y).toBeCloseTo(50, 10)
+    expect(cameraRef.current.ppm).toBeCloseTo(10, 10)
+    expect(jumpAnimRef.current).toBeNull()
+    expect(markDirty).not.toHaveBeenCalled()
+  })
 })

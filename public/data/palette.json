@@ -105,6 +105,11 @@
     "textColour": "#fff8ee",
     "haloColour": "#1a1714",
     "haloWidthPx": 3,
+    "highContrast": {
+      "textColour": "#ffffff",
+      "haloColour": "#000000",
+      "haloWidthPx": 5
+    },
     "baseFontSizePx": 13,
     "refPpm": 12,
     "logScaleRate": 0.08,
@@ -145,5 +150,9 @@
     "harvestMonths": [7, 8, 9],
     "harvestColour": "#c9932f",
     "harvestStrength": 0.35
+  },
+  "quality": {
+    "low": { "tilePixels": 256, "particleBudgetScale": 0.3, "vehicleBudgetScale": 0.3 },
+    "normal": { "tilePixels": 512, "particleBudgetScale": 1, "vehicleBudgetScale": 1 }
   }
 }

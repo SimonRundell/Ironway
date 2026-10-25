@@ -70,11 +70,23 @@ const HOLE_THRESHOLD_MS = 150
  * @param {number} [options.startYear] T2.12: the save's calendar start year, required when `overlayMode === 'prices'`.
  * @param {boolean} [options.seasonEnabled] PHASES.md T2.13: the HUD's seasons toggle. Omitted (or `false`), terrain tiles render with no seasonal tint/snow/harvest colour at all, and the tile manager never pays for it.
  * @param {number} [options.seasonMonthIndex] T2.13: the sim's current calendar month (0 = January, from `sim/clock.js`'s `monthIndexOf()`). Ignored when `seasonEnabled` is falsy.
+ * @param {boolean} [options.reducedMotion] PHASES.md T2.14: freezes the wall-clock animation term (smoke, water wheels, furnace glow, vehicles along a link) at a fixed phase instead of advancing it every frame, and skips settlement buildings' fade-in/abandon-fade ramp (see `settlements.js`'s own doc comment on why that needs its own flag rather than a frozen `nowMs`). Camera easing (`jumpTo`'s 600ms pan/zoom, drag inertia) is handled by `MapView.jsx` itself, not here.
+ * @param {boolean} [options.highContrastLabels] T2.14: swaps in `palette.labels.highContrast`'s colours/halo width (pure white on pure black, by default) in place of the normal label styling. Omitted, labels use their ordinary styling.
+ * @param {number} [options.particleBudgetScale] T2.14's quality setting: multiplies `palette.industries.particleBudget` before it reaches the industries layer. Defaults to 1 (no change).
+ * @param {number} [options.vehicleBudgetScale] T2.14's quality setting: multiplies `palette.traffic.vehicleBudget` before it reaches the traffic layer. Defaults to 1 (no change).
  * @returns {void}
  */
-export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, tileManager, holeSince, holeStats, links, palette, settlements, classesRules, settlementLifecycle, industries, gameDay, cargoRules, grid, gameState, rules, overlayMode, overlayCargoId, classIdByIndex, startYear, seasonEnabled, seasonMonthIndex }) {
+export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, tileManager, holeSince, holeStats, links, palette, settlements, classesRules, settlementLifecycle, industries, gameDay, cargoRules, grid, gameState, rules, overlayMode, overlayCargoId, classIdByIndex, startYear, seasonEnabled, seasonMonthIndex, reducedMotion, highContrastLabels, particleBudgetScale = 1, vehicleBudgetScale = 1 }) {
   tileManager.setSeason(Boolean(seasonEnabled), seasonMonthIndex ?? 0)
   const { levelPpm, visible } = tileManager.ensureVisible(camera, viewport, topDownProjection)
+  // Smoke/wheel/furnace-glow/vehicle-position animation is a pure
+  // function of this timestamp (see industries.js/traffic.js's own doc
+  // comments) — frozen at 0 whenever reduced motion is on, so every one
+  // of those functions draws its fixed t=0 phase instead of advancing.
+  // Settlement building lifecycle bookkeeping deliberately keeps the
+  // real `timestampMs` regardless (see the `drawSettlementsLayer` call
+  // below).
+  const animNowMs = reducedMotion ? 0 : timestampMs
   const tileSize = tileWorldSize(levelPpm)
 
   const terrainCtx = canvases.terrain.getContext('2d')
@@ -199,6 +211,7 @@ export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, 
       settlementRules: palette.settlements,
       lifecycleMap: settlementLifecycle,
       nowMs: timestampMs,
+      reducedMotion,
     })
   }
 
@@ -209,9 +222,9 @@ export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, 
       viewport,
       projection: topDownProjection,
       industries,
-      industriesRules: palette.industries,
+      industriesRules: { ...palette.industries, particleBudget: Math.round(palette.industries.particleBudget * particleBudgetScale) },
       gameDay: gameDay ?? 0,
-      nowMs: timestampMs,
+      nowMs: animNowMs,
     })
   }
 
@@ -224,9 +237,9 @@ export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, 
       links,
       settlements,
       cargoRules,
-      trafficRules: palette.traffic,
+      trafficRules: { ...palette.traffic, vehicleBudget: Math.round(palette.traffic.vehicleBudget * vehicleBudgetScale) },
       settlementRules: palette.settlements,
-      nowMs: timestampMs,
+      nowMs: animNowMs,
     })
   }
 
@@ -246,6 +259,9 @@ export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, 
   labelsCtx.fillText('Origin (0, 0)', originScreen.x + 10, originScreen.y + 4)
 
   if (settlements && palette) {
+    const labelsRules = highContrastLabels && palette.labels.highContrast
+      ? { ...palette.labels, ...palette.labels.highContrast }
+      : palette.labels
     drawLabelsLayer({
       ctx: labelsCtx,
       camera,
@@ -253,7 +269,7 @@ export function drawPlaceholderWorld({ timestampMs, canvases, camera, viewport, 
       projection: topDownProjection,
       settlements,
       industries,
-      rules: palette.labels,
+      rules: labelsRules,
     })
   }
   labelsCtx.restore()

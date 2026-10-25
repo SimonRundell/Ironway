@@ -413,10 +413,16 @@ function drawBuildingIcon(ctx, screen, sizePx, colour, alpha, scale) {
  * @param {{r: number, g: number, b: number}} options.abandonedRgb Pre-parsed, once per frame.
  * @param {Map<number, Map<number, {bornAt: number, removedAt: number|null}>>} options.lifecycleMap Mutated in place; owned by the caller across frames.
  * @param {number} options.nowMs
+ * @param {boolean} [options.reducedMotion] PHASES.md T2.14: skips the fade-in/abandon-fade ramp below, drawing each building at its final look (fully appeared, or fully faded if abandoned) the instant its lifecycle state changes, rather than animating the transition.
  * @returns {void}
  */
-function drawBuildings({ ctx, settlement, radiusMiles, camera, viewport, projection, classOrder, shares, settlementRules, classColoursRgb, featureColoursRgb, abandonedRgb, lifecycleMap, nowMs }) {
+function drawBuildings({ ctx, settlement, radiusMiles, camera, viewport, projection, classOrder, shares, settlementRules, classColoursRgb, featureColoursRgb, abandonedRgb, lifecycleMap, nowMs, reducedMotion }) {
   const activeCount = buildingSlotCount(settlement.housing, settlementRules)
+  // `updateBuildingLifecycle` always gets the real `nowMs`, reduced
+  // motion or not — it is bookkeeping (when a slot was born/abandoned),
+  // not an animation, and freezing it would leave abandoned buildings
+  // stuck "mid-fade" in the lifecycle map forever instead of ever
+  // actually finishing their removal.
   const slots = updateBuildingLifecycle(lifecycleMap, settlement.id, activeCount, nowMs, settlementRules.abandonedFadeMs)
 
   for (const [index, entry] of slots) {
@@ -430,7 +436,10 @@ function drawBuildings({ ctx, settlement, radiusMiles, camera, viewport, project
     const isAbandoned = entry.removedAt !== null
     let alpha
     let scale
-    if (!isAbandoned) {
+    if (reducedMotion) {
+      alpha = isAbandoned ? 0.3 : 1
+      scale = 1
+    } else if (!isAbandoned) {
       const t = Math.min(1, (nowMs - entry.bornAt) / settlementRules.fadeInMs)
       alpha = t
       scale = 0.3 + 0.7 * t
@@ -472,9 +481,10 @@ function drawBuildings({ ctx, settlement, radiusMiles, camera, viewport, project
  * @param {object} options.settlementRules `palette.json`'s `settlements` block.
  * @param {Map<number, Map<number, {bornAt: number, removedAt: number|null}>>} options.lifecycleMap Mutated in place; owned by the caller across frames (the same ref-map pattern as `drawPlaceholderWorld.js`'s `holeSince`).
  * @param {number} options.nowMs
+ * @param {boolean} [options.reducedMotion] PHASES.md T2.14: forwarded to `drawBuildings()`'s own doc comment.
  * @returns {void}
  */
-export function drawSettlementsLayer({ ctx, camera, viewport, projection, settlements, classesRules, settlementRules, lifecycleMap, nowMs }) {
+export function drawSettlementsLayer({ ctx, camera, viewport, projection, settlements, classesRules, settlementRules, lifecycleMap, nowMs, reducedMotion }) {
   const classOrder = classesRules.map((c) => c.id)
   const classColoursRgb = {}
   for (const id of classOrder) classColoursRgb[id] = hexToRgb(settlementRules.classColours[id] ?? '#888888')
@@ -493,7 +503,7 @@ export function drawSettlementsLayer({ ctx, camera, viewport, projection, settle
     } else if (camera.ppm < settlementRules.localMaxPpm) {
       drawFootprint({ ctx, settlement, radiusMiles, colour: dominantColour(shares, settlementRules.classColours), camera, viewport, projection, settlementRules })
     } else {
-      drawBuildings({ ctx, settlement, radiusMiles, camera, viewport, projection, classOrder, shares, settlementRules, classColoursRgb, featureColoursRgb, abandonedRgb, lifecycleMap, nowMs })
+      drawBuildings({ ctx, settlement, radiusMiles, camera, viewport, projection, classOrder, shares, settlementRules, classColoursRgb, featureColoursRgb, abandonedRgb, lifecycleMap, nowMs, reducedMotion })
     }
   }
 }

@@ -42,8 +42,9 @@ const INERTIA_STOP_SPEED = 2
 /**
  * @param {object} props
  * @param {{minX: number, minY: number, maxX: number, maxY: number}} [props.bounds] Island bounds, in miles, for the initial fit-to-island and Home key. Defaults to a 100x100 mile placeholder square.
- * @param {{grid: object, landuseEnum: string[], palette: object, links?: import('../sim/state.js').Link[], settlements?: import('../sim/state.js').Settlement[], classesRules?: {id: string}[], industries?: import('../sim/state.js').Industry[], sim?: {gameDay: number}, cargoRules?: {id: string, category: string}[], rules?: object, overlay?: {mode: string, cargoId: string|null}, classIdByIndex?: Map<number, string>, startYear?: number, season?: {enabled: boolean, monthIndex: number}}} [props.world] PHASES.md T2.04: a fully generated world (its grid, `terrain.json`'s `landuseEnum`, `palette.json`) to render real terrain for. Omitted by default, which keeps T2.02/T2.03's flat placeholder world (every tile worker falls back to its own placeholder renderer). `links` (PHASES.md T2.06) draws the road/rail/sea-lane network on the overlay layer and enables click-to-hit-test when `showDebugStats` is on; omitted, no network is drawn. `settlements` and `classesRules` (PHASES.md T2.07) draw settlement blobs/footprints/buildings on the dynamic layer; omitted, no settlements are drawn. Settlement, industry and link objects are read fresh every frame, so mutating them in place (e.g. after `sim/tick.js`'s `runYears()`) and calling the imperative `markDirty()` (see `ref`) picks up the change without a new `world` object. `industries` (PHASES.md T2.08) draws one sprite per industry on the dynamic layer, after settlements; `sim.gameDay` (a small mutable object, not a plain number, for the same in-place-mutation reason as the settlement/industry/link data) drives its construction/derelict lifecycle look — both required together, since the look is meaningless without a current day to measure against. `cargoRules` (PHASES.md T2.09) draws carts/trains/ships moving along `links` (density and colour from each link's own `recentFlow`) plus port activity at settlements with live sea flow, after industries; requires `links`, `settlements` and `palette.traffic` alongside it. T2.10 (DESIGN 9.7) draws haloed, decluttered settlement and industry name labels on the labels layer; it needs no field of its own, since `settlements`/`industries`/`palette` were already threaded through for T2.07/T2.08. T2.12 adds `rules` (the full validated bundle), `overlay` (a small mutable object, the same in-place-mutation convention as `sim`, so a HUD toggle can change `overlay.mode`/`overlay.cargoId` and call `markDirty()` without a new `world` object), `classIdByIndex` and `startYear` — all four together drive the heat-overlay layer (`render/overlays.js`); omitted (or `overlay.mode === 'none'`), no overlay is drawn. `season` (PHASES.md T2.13, the same in-place-mutation convention again) tells the terrain tile pipeline whether to render seasonal tint/snow/harvest colour and for which calendar month; omitted (or `season.enabled` false), tiles render with no seasonal effect at all and the tile manager never pays for it.
+ * @param {{grid: object, landuseEnum: string[], palette: object, links?: import('../sim/state.js').Link[], settlements?: import('../sim/state.js').Settlement[], classesRules?: {id: string}[], industries?: import('../sim/state.js').Industry[], sim?: {gameDay: number}, cargoRules?: {id: string, category: string}[], rules?: object, overlay?: {mode: string, cargoId: string|null}, classIdByIndex?: Map<number, string>, startYear?: number, season?: {enabled: boolean, monthIndex: number}, accessibility?: {reducedMotion: boolean, highContrastLabels: boolean, particleBudgetScale: number, vehicleBudgetScale: number}}} [props.world] PHASES.md T2.04: a fully generated world (its grid, `terrain.json`'s `landuseEnum`, `palette.json`) to render real terrain for. Omitted by default, which keeps T2.02/T2.03's flat placeholder world (every tile worker falls back to its own placeholder renderer). `links` (PHASES.md T2.06) draws the road/rail/sea-lane network on the overlay layer and enables click-to-hit-test when `showDebugStats` is on; omitted, no network is drawn. `settlements` and `classesRules` (PHASES.md T2.07) draw settlement blobs/footprints/buildings on the dynamic layer; omitted, no settlements are drawn. Settlement, industry and link objects are read fresh every frame, so mutating them in place (e.g. after `sim/tick.js`'s `runYears()`) and calling the imperative `markDirty()` (see `ref`) picks up the change without a new `world` object. `industries` (PHASES.md T2.08) draws one sprite per industry on the dynamic layer, after settlements; `sim.gameDay` (a small mutable object, not a plain number, for the same in-place-mutation reason as the settlement/industry/link data) drives its construction/derelict lifecycle look — both required together, since the look is meaningless without a current day to measure against. `cargoRules` (PHASES.md T2.09) draws carts/trains/ships moving along `links` (density and colour from each link's own `recentFlow`) plus port activity at settlements with live sea flow, after industries; requires `links`, `settlements` and `palette.traffic` alongside it. T2.10 (DESIGN 9.7) draws haloed, decluttered settlement and industry name labels on the labels layer; it needs no field of its own, since `settlements`/`industries`/`palette` were already threaded through for T2.07/T2.08. T2.12 adds `rules` (the full validated bundle), `overlay` (a small mutable object, the same in-place-mutation convention as `sim`, so a HUD toggle can change `overlay.mode`/`overlay.cargoId` and call `markDirty()` without a new `world` object), `classIdByIndex` and `startYear` — all four together drive the heat-overlay layer (`render/overlays.js`); omitted (or `overlay.mode === 'none'`), no overlay is drawn. `season` (PHASES.md T2.13, the same in-place-mutation convention again) tells the terrain tile pipeline whether to render seasonal tint/snow/harvest colour and for which calendar month; omitted (or `season.enabled` false), tiles render with no seasonal effect at all and the tile manager never pays for it. `accessibility` (PHASES.md T2.14, the same in-place-mutation convention) holds the reduced-motion/high-contrast-labels/quality settings read every frame by `draw()` and, for `reducedMotion`, also by `onPointerUp` (skips starting drag inertia) and `useImperativeHandle` (makes `jumpTo()` snap instantly); omitted, every one of those behaves exactly as it did before T2.14.
  * @param {number} [props.tileMemoryCapMb] The tile cache's memory cap (DESIGN 9.4/9.9, `client.json`'s `render.tileMemoryCapMb`). Defaults to that file's own starter value; a real page will eventually pass the loaded value through instead.
+ * @param {number} [props.tilePixels] PHASES.md T2.14's quality setting (`palette.json`'s `quality.<name>.tilePixels`): the native resolution of a cached terrain tile bitmap. Changing it after mount tears down and rebuilds the tile manager (and its worker pool) — see the dedicated effect below — since `tilePixels` is `createTileManager()`'s own construction-time option, not a runtime setter the way `setSeason()` is.
  * @param {boolean} [props.showDebugStats] Shows a small renders/frames/cache counter and a tile-pipeline stress-test button, for T2.02/T2.03's own Done-when verification. Not meant to stay on by default once T2.12 builds the real HUD.
  * @param {(selection: {type: 'settlement'|'industry'|'link', id: number}) => void} [props.onSelect] PHASES.md T2.12: called on a tap/click (not a drag or flick) that lands on a settlement, industry or link, whichever is nearest (`render/selection.js`). Omitted, clicks are still hit-tested for the debug link readout (see `showDebugStats`) but nothing else happens.
  * @param {import('react').ReactNode} [props.children] Rendered in the HUD slot, above the canvases, as plain DOM/React.
@@ -54,6 +55,7 @@ const MapView = forwardRef(function MapView({
   bounds = { minX: -50, minY: -50, maxX: 50, maxY: 50 },
   world,
   tileMemoryCapMb = 200,
+  tilePixels = 512,
   showDebugStats = false,
   onSelect,
   children,
@@ -144,6 +146,10 @@ const MapView = forwardRef(function MapView({
         startYear: world?.startYear,
         seasonEnabled: world?.season?.enabled,
         seasonMonthIndex: world?.season?.monthIndex,
+        reducedMotion: world?.accessibility?.reducedMotion,
+        highContrastLabels: world?.accessibility?.highContrastLabels,
+        particleBudgetScale: world?.accessibility?.particleBudgetScale,
+        vehicleBudgetScale: world?.accessibility?.vehicleBudgetScale,
       })
 
       if (debugRef.current) {
@@ -160,6 +166,7 @@ const MapView = forwardRef(function MapView({
     markDirtyRef.current = loop.markDirty
     tileManagerRef.current = createTileManager({
       capacityBytes: tileMemoryCapMb * 1024 * 1024,
+      tilePixels,
       world,
       onDirty: () => loop.markDirty(),
       onError: (key, message) => setWorkerError({ key, message, at: Date.now() }),
@@ -200,6 +207,31 @@ const MapView = forwardRef(function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // PHASES.md T2.14's quality setting can change `tilePixels` after
+  // mount (the HUD's quality select). `createTileManager()`'s
+  // `tilePixels` is a construction-time option, not a runtime setter
+  // the way `setSeason()` is (a tile bitmap's own dimensions can't
+  // change underneath an already-cached entry) — so a genuine change
+  // tears down the old tile manager (and its worker pool) and builds a
+  // fresh one at the new resolution. `previousTilePixelsRef` starts
+  // equal to the initial `tilePixels`, so this is a no-op on the very
+  // first run: the mount effect above already built that first tile
+  // manager at this same resolution.
+  const previousTilePixelsRef = useRef(tilePixels)
+  useEffect(() => {
+    if (previousTilePixelsRef.current === tilePixels) return
+    previousTilePixelsRef.current = tilePixels
+    tileManagerRef.current?.destroy()
+    tileManagerRef.current = createTileManager({
+      capacityBytes: tileMemoryCapMb * 1024 * 1024,
+      tilePixels,
+      world,
+      onDirty: () => markDirtyRef.current?.(),
+      onError: (key, message) => setWorkerError({ key, message, at: Date.now() }),
+    })
+    markDirtyRef.current?.()
+  }, [tilePixels, tileMemoryCapMb, world])
+
   /** @param {import('react').PointerEvent} event @returns {void} */
   function onPointerDown(event) {
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -229,7 +261,7 @@ const MapView = forwardRef(function MapView({
     const drag = dragRef.current
     const velocity = drag?.velocity ?? { x: 0, y: 0 }
     dragRef.current = null
-    if (Math.hypot(velocity.x, velocity.y) > INERTIA_STOP_SPEED) {
+    if (!world?.accessibility?.reducedMotion && Math.hypot(velocity.x, velocity.y) > INERTIA_STOP_SPEED) {
       inertiaRef.current = { velocity, lastTimestampMs: performance.now() }
       loopMarkDirty()
     } else if (drag && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 5) {
@@ -302,7 +334,8 @@ const MapView = forwardRef(function MapView({
   // panning/zooming never triggers a React re-render, so nothing
   // outside can reach it any other way.
   useImperativeHandle(ref, () => createMapViewHandle({
-    cameraRef, jumpAnimRef, viewportRef, markDirty: loopMarkDirty, jumpDurationMs: JUMP_DURATION_MS,
+    cameraRef, jumpAnimRef, viewportRef, markDirty: loopMarkDirty,
+    jumpDurationMs: world?.accessibility?.reducedMotion ? 0 : JUMP_DURATION_MS,
   }))
 
   // Debug-only scripted pan and zoom (see render/debugStressTest.js for
