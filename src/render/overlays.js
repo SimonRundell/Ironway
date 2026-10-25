@@ -338,7 +338,7 @@ function drawGridOverlay({ ctx, camera, viewport, projection, mode, grid, rules,
   if (mode === 'suitability') {
     buildableMask = buildableMaskCache.get(grid)
     if (!buildableMask) {
-      buildableMask = computeBuildableMask(grid, rules.terrain)
+      buildableMask = computeBuildableMask(grid, rules.terrain, rules.mapgen.industries.riverMinWidthClass)
       buildableMaskCache.set(grid, buildableMask)
     }
   }

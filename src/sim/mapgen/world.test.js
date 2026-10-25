@@ -8,17 +8,22 @@ const SEEDS = Array.from({ length: 20 }, (_, i) => `ironway-${String(i + 1).padS
 
 /** @type {Record<string, string>} Golden world checksums, committed so an accidental generator change is caught (DESIGN 11). */
 const GOLDEN_CHECKSUMS = {
-  // Regenerated after fixing isNearRiver() (src/sim/mapgen/industries.js):
-  // river-sited industries (flour mills, sawmills, ironworks, etc.) no
-  // longer land directly on the river channel's own cell, only on dry
-  // riverside land next to it — a genuine placement behaviour change,
-  // not just a schema addition, so industry positions legitimately
-  // differ from the previous golden run.
-  'ironway-001': 'c2d40b29694ba76f',
-  'ironway-002': '8cbed9365abc7975',
-  'ironway-003': 'd0cbcae5c1caaf81',
-  'ironway-004': 'a9fb071dac55a275',
-  'ironway-005': 'e2bf3f39cf7c5876',
+  // Regenerated after fixing computeBuildableMask() (src/sim/mapgen/
+  // settlements.js): a cell sitting on a river channel (grid.river >=
+  // riverMinWidthClass) is no longer "buildable" at all, for settlements
+  // or any industry. Previously only the `river` siteRule's own
+  // isNearRiver() check ever looked at grid.river — everything else
+  // (settlement scoring, `town:`/`resource:`-sited industries) had no
+  // river awareness whatsoever, so a town or a non-river-sited industry
+  // could, and in practice often did, land directly on the river's own
+  // channel. A genuine placement behaviour change, not just a schema
+  // addition, so settlement and industry positions legitimately differ
+  // from the previous golden run.
+  'ironway-001': '756cef79db573447',
+  'ironway-002': '6f93d9a0e6ce2123',
+  'ironway-003': 'e64dcdea9b15ecaf',
+  'ironway-004': 'e74500d443284e3a',
+  'ironway-005': 'cfb1316a55734353',
 }
 
 let rules

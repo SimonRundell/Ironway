@@ -29,23 +29,37 @@ function clamp01(value) {
 }
 
 /**
- * Builds the buildable-land mask: land cells that are not `rock` and
- * belong to the main landmass. DESIGN 5.2 step 10's own invariant
- * ("everything that is not rock is farmable, buildable or
- * exploitable") covers the rock exclusion; the landmass restriction is
- * this module's own addition, since island.js keeps up to 3 small
- * islets alongside the main landmass (step 4), and those are
- * genuinely cut off from it by sea — a settlement placed there could
- * never be reached from the capital by road, which DESIGN 5.3
- * requires unconditionally. Excluding them here, before any scoring
- * happens, is cheaper and more certain than trying to patch road
- * connectivity around an island with no land route to it.
+ * Builds the buildable-land mask: land cells that are not `rock`,
+ * belong to the main landmass, and are not themselves a river channel.
+ * DESIGN 5.2 step 10's own invariant ("everything that is not rock is
+ * farmable, buildable or exploitable") covers the rock exclusion; the
+ * landmass restriction is this module's own addition, since island.js
+ * keeps up to 3 small islets alongside the main landmass (step 4), and
+ * those are genuinely cut off from it by sea — a settlement placed
+ * there could never be reached from the capital by road, which DESIGN
+ * 5.3 requires unconditionally. Excluding them here, before any
+ * scoring happens, is cheaper and more certain than trying to patch
+ * road connectivity around an island with no land route to it.
+ *
+ * The river exclusion is a fix, not part of the original design: a
+ * river channel cell (`grid.river[i] >= riverMinWidthClass`) is still
+ * `grid.water === 0` — rivers are a continuous flow field layered on
+ * top of otherwise-dry land, not a `grid.water` value — so without this
+ * check nothing stopped a settlement or a `town:`/`resource:`-sited
+ * industry from landing exactly on the river itself, rendered with the
+ * river's own stroke running straight through it. Only the `river`
+ * siteRule's own `isNearRiver()` check (industries.js) ever looked at
+ * `grid.river` before this; everything else that calls this shared mask
+ * now gets the same exclusion for free, river-sited industries included
+ * (they already only ever wanted a *dry* cell near the channel, never
+ * the channel itself, so this changes nothing for them).
  *
  * @param {object} grid The world grid.
  * @param {{landuseEnum: string[]}} terrainRules The validated terrain.json rules.
- * @returns {Uint8Array} 1 where a settlement may be placed, 0 otherwise.
+ * @param {number} riverMinWidthClass `mapgen.json`'s `industries.riverMinWidthClass` — the same threshold the `river` siteRule itself uses for "this cell is the channel, not the bank".
+ * @returns {Uint8Array} 1 where a settlement or industry may be placed, 0 otherwise.
  */
-export function computeBuildableMask(grid, terrainRules) {
+export function computeBuildableMask(grid, terrainRules, riverMinWidthClass) {
   const rockIndex = terrainRules.landuseEnum.indexOf('rock')
 
   const components = floodFillLandmasses(grid)
@@ -57,7 +71,7 @@ export function computeBuildableMask(grid, terrainRules) {
 
   const mask = new Uint8Array(grid.landuse.length)
   for (let i = 0; i < grid.landuse.length; i++) {
-    mask[i] = grid.water[i] === 0 && grid.landuse[i] !== rockIndex && mainLandmass[i] ? 1 : 0
+    mask[i] = grid.water[i] === 0 && grid.landuse[i] !== rockIndex && mainLandmass[i] && grid.river[i] < riverMinWidthClass ? 1 : 0
   }
   return mask
 }
@@ -414,7 +428,7 @@ export function generateSettlements(grid, seed, mapgenRules, settlementsRules, t
   const kindsById = {}
   settlementsRules.kinds.forEach((kind) => { kindsById[kind.id] = kind })
 
-  const buildable = computeBuildableMask(grid, terrainRules)
+  const buildable = computeBuildableMask(grid, terrainRules, mapgenRules.industries.riverMinWidthClass)
   const fertilityRadiusCells = Math.round(p.fertilityRadiusMiles / grid.cellMiles)
   const fertilityAvg = computeFertilityAverage(grid, fertilityRadiusCells)
   const score = computeSettlementScores(grid, mapgenRules, settlementsRules, terrainRules, buildable, fertilityAvg)

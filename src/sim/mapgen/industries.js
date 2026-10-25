@@ -441,7 +441,7 @@ function capCombinedRailMileage(tramwayLinks, mainLinks, maxRailShareOfRoadMiles
  * @returns {{industries: import('../state.js').Industry[], tramwayLinks: import('../state.js').Link[]}}
  */
 export function generateIndustries(grid, seed, mapgenRules, industriesCatalogue, terrainRules, settlements, deposits, startYear, mainLinks) {
-  const buildable = computeBuildableMask(grid, terrainRules)
+  const buildable = computeBuildableMask(grid, terrainRules, mapgenRules.industries.riverMinWidthClass)
   const homeSettlementId = computeHomeSettlementIds(grid, settlements, mapgenRules.industries.homeSettlementRadiusMiles)
   const ctx = buildSitingContext(grid, mapgenRules, terrainRules, industriesCatalogue, settlements)
   const industryById = new Map(industriesCatalogue.map((ind) => [ind.id, ind]))

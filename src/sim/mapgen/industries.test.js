@@ -138,7 +138,7 @@ describe('generateIndustries property tests (20 seeds)', () => {
   it.each(SEEDS)('%s: each primary cargo has at least 2 plausible downstream sites', (seed) => {
     const { grid, settlements, industries } = generate(seed)
     const ctx = buildSitingContext(grid, mapgenRules, terrainRules, industriesCatalogue, settlements)
-    const buildable = computeBuildableMask(grid, terrainRules)
+    const buildable = computeBuildableMask(grid, terrainRules, mapgenRules.industries.riverMinWidthClass)
 
     const primaryCargoes = new Set()
     for (const def of industriesCatalogue) {
