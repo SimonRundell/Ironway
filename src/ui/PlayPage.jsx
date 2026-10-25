@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { monthIndexOf } from '../sim/clock.js'
 import { getSetting, setSetting } from '../state/settings.js'
 import { useGameSession } from '../state/useGameSession.js'
@@ -52,6 +52,15 @@ export default function PlayPage() {
   const session = useGameSession(Number(saveId))
   const mapViewRef = useRef(null)
   const simRef = useRef({ gameDay: 0 })
+  // `?debug=1` opts into MapView's debug stats panel (tile/frame
+  // counters, the tile-pipeline stress test, and PHASES.md T2.15's own
+  // performance tour) on the real gameplay view — these tools need a
+  // genuinely loaded save (real settlements/industries/traffic/labels
+  // all drawing) to measure anything representative, which the
+  // debug-only `MapViewTestPage` can't offer. Never shown to a player
+  // who hasn't gone looking for it.
+  const [searchParams] = useSearchParams()
+  const showDebugStats = searchParams.get('debug') === '1'
 
   const [overlayMode, setOverlayMode] = useState('none')
   const [overlayCargoId, setOverlayCargoId] = useState('')
@@ -182,7 +191,7 @@ export default function PlayPage() {
 
   return (
     <main className="play-page">
-      <MapView ref={mapViewRef} world={worldForMap} bounds={bounds} tilePixels={qualityPreset.tilePixels} onSelect={setSelection}>
+      <MapView ref={mapViewRef} world={worldForMap} bounds={bounds} tilePixels={qualityPreset.tilePixels} showDebugStats={showDebugStats} onSelect={setSelection}>
         <div className="hud-top-left">
           <DateSpeedControls gameDay={session.gameDay} startYear={session.world.meta.startYear} speed={session.speed} setSpeed={session.setSpeed} />
           <EconomyLevelBadge level={session.gameState.economyState.level} levels={session.rules.economy.levels} />

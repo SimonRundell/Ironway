@@ -4,6 +4,7 @@ import { createStressTestRunner } from '../render/debugStressTest.js'
 import { drawPlaceholderWorld } from '../render/drawPlaceholderWorld.js'
 import { createMapViewHandle, stepJumpAnimation } from '../render/mapViewHandle.js'
 import { findNearestLink } from '../render/network.js'
+import { createPerfTourRunner } from '../render/perfTour.js'
 import { topDownProjection } from '../render/projection.js'
 import { createRenderLoop, resizeCanvasForDpr } from '../render/renderLoop.js'
 import { findNearestEntity } from '../render/selection.js'
@@ -79,14 +80,19 @@ const MapView = forwardRef(function MapView({
   const stressTestRef = useRef(null)
   const settlementLifecycleRef = useRef(new Map())
   const jumpAnimRef = useRef(null)
+  const perfTourRef = useRef(null)
+  const perfCaptureRef = useRef(null)
 
   // Worker errors are rare and exceptional, not a per-frame concern, so
   // unlike camera state this is ordinary React state (DESIGN 9.4's
   // "worker errors surface in the UI"). The network hit-test result
   // (debug-only, see onPointerUp) is the same kind of rare, click-driven
-  // event, not a per-frame value, so it is ordinary state too.
+  // event, not a per-frame value, so it is ordinary state too. The perf
+  // tour's own results (PHASES.md T2.15) are the same: a rare,
+  // button-triggered summary, not something read every frame.
   const [workerError, setWorkerError] = useState(null)
   const [hitLink, setHitLink] = useState(null)
+  const [perfResults, setPerfResults] = useState(null)
 
   // Counts React renders of this component. Should stop climbing after
   // mount: every interaction below mutates refs and redraws canvases
@@ -121,6 +127,15 @@ const MapView = forwardRef(function MapView({
       }
 
       statsRef.current.frames += 1
+      // PHASES.md T2.15: measures this frame's own synchronous render
+      // cost (DESIGN 9.9's "no main-thread task over 16 ms") — the
+      // actual JS execution time, not the inter-frame timestamp delta,
+      // which would also include idle/vsync wait and so could read well
+      // under budget even if this call itself were slow. Only recorded
+      // when `perfTour.js`'s scripted tour has a capture in progress
+      // (`perfCaptureRef.current` non-null); otherwise this is two
+      // cheap `performance.now()` reads and nothing else.
+      const drawStartMs = performance.now()
       drawPlaceholderWorld({
         timestampMs,
         canvases,
@@ -151,6 +166,7 @@ const MapView = forwardRef(function MapView({
         particleBudgetScale: world?.accessibility?.particleBudgetScale,
         vehicleBudgetScale: world?.accessibility?.vehicleBudgetScale,
       })
+      if (perfCaptureRef.current) perfCaptureRef.current.frames.push(performance.now() - drawStartMs)
 
       if (debugRef.current) {
         const cache = tileManagerRef.current.cache
@@ -203,6 +219,7 @@ const MapView = forwardRef(function MapView({
       loop.stop()
       tileManagerRef.current?.destroy()
       if (stressTestRef.current) cancelAnimationFrame(stressTestRef.current)
+      if (perfTourRef.current) cancelAnimationFrame(perfTourRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -344,6 +361,15 @@ const MapView = forwardRef(function MapView({
     cameraRef, stressTestRef, tileManagerRef, holeStatsRef, bounds, tileMemoryCapMb, markDirty: loopMarkDirty,
   })
 
+  // PHASES.md T2.15's own scripted camera tour (see render/perfTour.js):
+  // unlike the stress test above, this one measures and reports real
+  // per-frame render cost against DESIGN 9.9's budget, rather than just
+  // watching the tile cache survive sustained churn.
+  const runPerfTour = createPerfTourRunner({
+    cameraRef, perfCaptureRef, tourRef: perfTourRef, tileManagerRef, bounds, markDirty: loopMarkDirty,
+    onComplete: setPerfResults,
+  })
+
   return (
     <div
       ref={containerRef}
@@ -373,6 +399,16 @@ const MapView = forwardRef(function MapView({
               </div>
             )}
             <button type="button" onClick={runStressTest}>Run tile pipeline stress test</button>
+            <button type="button" onClick={runPerfTour}>Run performance tour</button>
+            {perfResults && (
+              <div>
+                frames: {perfResults.frameStats.count}, avg {perfResults.frameStats.avgMs.toFixed(2)}ms,
+                median {perfResults.frameStats.medianMs.toFixed(2)}ms, p95 {perfResults.frameStats.p95Ms.toFixed(2)}ms,
+                max {perfResults.frameStats.maxMs.toFixed(2)}ms, over-budget {(perfResults.frameStats.overBudgetFraction * 100).toFixed(1)}%
+                / cache {perfResults.cache.tileCount} tiles ({perfResults.cache.cacheMb.toFixed(1)} MB)
+                / heap Δ {perfResults.heapDeltaMb === null ? 'n/a' : `${perfResults.heapDeltaMb.toFixed(1)} MB`}
+              </div>
+            )}
           </div>
         )}
         {workerError && (

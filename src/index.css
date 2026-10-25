@@ -370,6 +370,8 @@ table.data-table tbody tr.selected {
   left: var(--space-2);
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  max-width: 90vw;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
   background: rgba(0, 0, 0, 0.6);
